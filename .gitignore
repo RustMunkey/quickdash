@@ -1,0 +1,43 @@
+# dependencies
+node_modules
+
+# next.js
+.next/
+out/
+
+# production
+build
+dist
+
+# turbo
+.turbo
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# uploads (local dev)
+**/public/uploads/
+
+# drizzle
+packages/db/drizzle/
+
+# backups
+backups/

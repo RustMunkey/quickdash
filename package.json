@@ -1,0 +1,26 @@
+{
+	"name": "quickdash",
+	"version": "0.1.0",
+	"private": true,
+	"packageManager": "pnpm@10.28.1",
+	"scripts": {
+		"dev": "turbo dev",
+		"dev:web": "turbo dev --filter=@quickdash/web",
+		"dev:admin": "turbo dev --filter=@quickdash/admin",
+		"build": "turbo build",
+		"lint": "turbo lint",
+		"format": "biome format . --write",
+		"db:generate": "pnpm --filter @quickdash/db db:generate",
+		"db:migrate": "pnpm --filter @quickdash/db db:migrate",
+		"db:push": "pnpm --filter @quickdash/db db:push",
+		"db:studio": "pnpm --filter @quickdash/db db:studio",
+		"docker:up": "docker compose -f docker/docker-compose.yml up -d",
+		"docker:down": "docker compose -f docker/docker-compose.yml down",
+		"docker:reset": "docker compose -f docker/docker-compose.yml down -v && docker compose -f docker/docker-compose.yml up -d"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.11",
+		"dotenv": "^16.6.1",
+		"turbo": "^2"
+	}
+}

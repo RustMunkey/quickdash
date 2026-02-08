@@ -1,0 +1,44 @@
+{
+  "name": "@quickdash/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for the Quickdash Storefront API",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsup": "^8.4.0",
+    "typescript": "^5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RustMunkey/quickdash"
+  },
+  "keywords": [
+    "quickdash",
+    "ecommerce",
+    "storefront",
+    "api",
+    "sdk"
+  ],
+  "license": "MIT",
+  "author": "Quickdash"
+}

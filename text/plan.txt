@@ -1,0 +1,1250 @@
+Left over from last sessions planning. Add to PRD when finished reading
+
+Top Priority: nuqs URL State Management                                        
+                                                                                
+ Next Session Task: Implement nuqs across all data tables and filters.          
+                                                                                
+ pnpm add nuqs                                                                  
+                                                                                
+ Where to apply:                                                                
+ - Products table (filters, sort, pagination)                                   
+ - Orders table (status filter, date range, sort)                               
+ - Customers table (search, filters, pagination)                                
+ - Inventory table (stock filters, sort)                                        
+ - Subscriptions table (status, plan filters)                                   
+ - Analytics pages (date range, comparison toggles)                             
+ - Settings tabs                                                                
+                                                                                
+ Benefits:                                                                      
+ - Shareable filtered views                                                     
+ - Browser back/forward works                                                   
+ - No loading spinners on refresh                                               
+ - SSR pre-renders correct state                                                
+                                                                                
+ ---                                                                            
+ Webhooks + Real-Time Features                                                  
+                                                                                
+ Overview                                                                       
+                                                                                
+ Webhook integrations and real-time features for the admin dashboard.           
+                                                                                
+ ---                                                                            
+ Progress                                                                       
+                                                                                
+ Completed ✅                                                                   
+                                                                                
+ - Phase 1: Foundation - Database schemas, webhook utilities, Pusher auth       
+ updates                                                                        
+ - Phase 2: Polar Webhooks - Endpoint, Inngest handlers, signature verification 
+ - Phase 3: Live Order Notifications - Hooks, notification bell, order action   
+ broadcasts                                                                     
+ - Phase 4: Presence System - Hooks, components, sessions page integration      
+ - Phase 5: Shipping Webhooks - SKIPPED (per user request)                      
+ - Phase 6: Inventory Alerts - Pusher broadcasts added to inventory actions     
+ - Phase 7: Email Delivery Status - Resend webhook endpoint and handlers        
+ - Phase 8: Live Updates for All Tables/Stats - Complete in-place live updates  
+ across admin panel:                                                            
+   - Dashboard stats with AnimatedNumber odometer effect                        
+   - Live revenue chart updates                                                 
+   - Products table with live create/update/delete/bulk events                  
+   - Customers table with live create/update events                             
+   - Subscriptions table with live create/update/cancel events                  
+   - Orders table with live create/update events                                
+   - Inventory table with live stock alerts                                     
+   - Analytics pages with live stat updates                                     
+   - Pusher broadcasts added to subscription actions                            
+                                                                                
+ In Progress                                                                    
+                                                                                
+ - Phase 10: Notification Center - Preferences page ✅, full notification       
+ center, desktop notifications                                                  
+                                                                                
+ Remaining                                                                      
+                                                                                
+ - Phase 9: Quickdash Fulfillment Pipeline - Email ingestion, tracking service   
+ integration, enhanced tracking UI                                              
+                                                                                
+ ---                                                                            
+ Phase 9: Quickdash Fulfillment Pipeline                                         
+                                                                                
+ Context: The Dripshipper Problem                                               
+                                                                                
+ Quickdash uses Dripshipper for white-label coffee dropshipping. Dripshipper has 
+  no public API or webhooks - they only integrate with Shopify. Their actual    
+ workflow:                                                                      
+                                                                                
+ 1. You place order manually in their dashboard                                 
+ 2. They roast, package with YOUR label, ship to customer                       
+ 3. They send you an email with tracking number                                 
+ 4. That's it.                                                                  
+                                                                                
+ The Pipeline Architecture                                                      
+                                                                                
+ ┌─────────────────────────────────────────────────────────────────────┐        
+ │                     QUICKDASH FULFILLMENT PIPELINE                    │       
+ ├─────────────────────────────────────────────────────────────────────┤        
+ │                                                                      │       
+ │  CUSTOMER BUYS → ORDER CREATED → YOU PLACE W/ DRIPSHIPPER (manual)  │        
+ │                                                                      │       
+ │  TRACKING ENTRY OPTIONS:                                            │        
+ │  ┌─────────────────────────────────────────────────────────────┐    │        
+ │  │ OPTION A: Email Ingestion (automated)                        │    │       
+ │  │   Dripshipper email → Resend inbound → Parse → Save tracking │    │       
+ │  └─────────────────────────────────────────────────────────────┘    │        
+ │  ┌─────────────────────────────────────────────────────────────┐    │        
+ │  │ OPTION B: Manual Entry (current)                             │    │       
+ │  │   Copy tracking from email → Paste in admin → Save           │    │       
+ │  └─────────────────────────────────────────────────────────────┘    │        
+ │                                                                      │       
+ │  LIVE TRACKING UPDATES:                                             │        
+ │  ┌─────────────────────────────────────────────────────────────┐    │        
+ │  │ When tracking saved → Register with Ship24/Tracktry          │    │       
+ │  │ Tracking service webhooks → /api/webhooks/shipping/generic   │    │       
+ │  │ Status updates → DB + Pusher + Customer notification         │    │       
+ │  └─────────────────────────────────────────────────────────────┘    │        
+ │                                                                      │       
+ └─────────────────────────────────────────────────────────────────────┘        
+                                                                                
+ What Already Exists ✅                                                         
+ ┌───────────────────────┬────────┬───────────────────────────────────────────┐ 
+ │       Component       │ Status │                 Location                  │ 
+ ├───────────────────────┼────────┼───────────────────────────────────────────┤ 
+ │ Shipping webhook      │ ✅     │ /api/webhooks/shipping/[carrier]/route.ts │ 
+ │ receiver              │ DONE   │                                           │ 
+ ├───────────────────────┼────────┼───────────────────────────────────────────┤ 
+ │ Status normalization  │ ✅     │ ShipStation, Shippo, EasyPost, Generic    │ 
+ │                       │ DONE   │                                           │ 
+ ├───────────────────────┼────────┼───────────────────────────────────────────┤ 
+ │ shipmentTracking      │ ✅     │ DB schema with full status history        │ 
+ │ table                 │ DONE   │                                           │ 
+ ├───────────────────────┼────────┼───────────────────────────────────────────┤ 
+ │ Real-time updates     │ ✅     │ Pusher broadcasts on tracking events      │ 
+ │                       │ DONE   │                                           │ 
+ ├───────────────────────┼────────┼───────────────────────────────────────────┤ 
+ │ Order auto-update     │ ✅     │ Status → delivered when tracking          │ 
+ │                       │ DONE   │ delivered                                 │ 
+ ├───────────────────────┼────────┼───────────────────────────────────────────┤ 
+ │ Manual tracking entry │ ✅     │ Order detail page "Add Tracking" dialog   │ 
+ │                       │ DONE   │                                           │ 
+ └───────────────────────┴────────┴───────────────────────────────────────────┘ 
+ What Needs to Be Built                                                         
+                                                                                
+ 9.1 Email Ingestion Endpoint                                                   
+                                                                                
+ Purpose: Auto-parse shipping notification emails from Dripshipper (and other   
+ suppliers)                                                                     
+                                                                                
+ POST /api/webhooks/ingest/email                                                
+                                                                                
+ - Receives inbound email via Resend/SendGrid webhook                           
+ - Parses email to extract:                                                     
+   - Tracking number (regex patterns for USPS, UPS, FedEx, etc.)                
+   - Carrier (auto-detect from tracking format)                                 
+   - Order reference (from subject/body)                                        
+ - Creates/updates shipmentTracking record                                      
+ - Optionally registers with tracking service                                   
+                                                                                
+ Email Parsing Patterns:                                                        
+ - USPS: 20-22 digits or starts with 94/93/92                                   
+ - UPS: 1Z + 16 alphanumeric                                                    
+ - FedEx: 12-15 digits or 20-22 digits                                          
+ - DHL: 10 digits                                                               
+                                                                                
+ Files:                                                                         
+ - app/api/webhooks/ingest/email/route.ts - Inbound email endpoint              
+ - lib/tracking/parser.ts - Email parsing + tracking number extraction          
+ - lib/tracking/carrier-detector.ts - Auto-detect carrier from tracking format  
+                                                                                
+ 9.2 Tracking Service Integration                                               
+                                                                                
+ Purpose: Register tracking numbers to get live status updates via webhooks     
+                                                                                
+ Services (pick one):                                                           
+ - Ship24 - $0.02/tracking, webhooks included                                   
+ - Tracktry - Free tier 100/month, webhooks included                            
+ - 17track - Free tier available                                                
+                                                                                
+ Flow:                                                                          
+ 1. When tracking number added to order                                         
+ 2. Call tracking service API to register                                       
+ 3. Tracking service monitors carrier                                           
+ 4. Tracking service webhooks our /api/webhooks/shipping/generic endpoint       
+ 5. Our existing normalizer handles the update                                  
+                                                                                
+ Files:                                                                         
+ - lib/tracking/service.ts - Tracking service API client                        
+ - lib/tracking/register.ts - Register new tracking numbers                     
+ - Modify app/(dashboard)/orders/actions.ts - Call register on addTracking      
+                                                                                
+ 9.3 Enhanced Tracking UI                                                       
+                                                                                
+ Order Detail Page Enhancements:                                                
+ - Show live tracking status (not just number)                                  
+ - Show tracking timeline from statusHistory                                    
+ - "Track with Live Updates" toggle when adding tracking                        
+ - Link to carrier tracking page                                                
+                                                                                
+ New Tracking Detail Slide-over:                                                
+ - Full timeline view                                                           
+ - Map (if location data available)                                             
+ - Estimated delivery                                                           
+ - Exception alerts                                                             
+                                                                                
+ Files:                                                                         
+ - Modify app/(dashboard)/orders/[id]/order-detail.tsx - Enhanced tracking      
+ section                                                                        
+ - components/tracking-timeline.tsx - Visual timeline component                 
+ - components/tracking-slideover.tsx - Full tracking detail view                
+                                                                                
+ 9.4 Carrier Auto-Detection                                                     
+                                                                                
+ When adding tracking manually:                                                 
+ - Auto-detect carrier from tracking number format                              
+ - Pre-fill carrier select                                                      
+ - Generate tracking URL automatically                                          
+                                                                                
+ Files:                                                                         
+ - lib/tracking/carrier-detector.ts - Detect carrier from tracking format       
+ - Modify order detail tracking dialog                                          
+                                                                                
+ 9.5 Customer Shipping Notifications                                            
+                                                                                
+ When tracking status changes, email customer:                                  
+ - "Your order has shipped" - with tracking number + link                       
+ - "Out for delivery" - arriving today                                          
+ - "Delivered" - confirmation                                                   
+                                                                                
+ Files:                                                                         
+ - lib/email/shipping-notifications.ts - Email templates and sending            
+ - Modify shipping webhook handler to trigger emails                            
+                                                                                
+ 9.6 Manual Override / Review Queue                                             
+                                                                                
+ Problem: Email parsing may fail or extract wrong info                          
+                                                                                
+ Solution: Review queue for auto-ingested tracking                              
+ - New ingested tracking goes to "Pending Review" state                         
+ - Admin sees queue of pending items                                            
+ - Can approve, edit, or reject each                                            
+ - Option to "trust this sender" to auto-approve future emails from same source 
+                                                                                
+ UI:                                                                            
+ - /shipping/tracking/pending - Review queue page                               
+ - Quick approve/reject actions                                                 
+ - Edit dialog to fix carrier/tracking/order association                        
+                                                                                
+ Files:                                                                         
+ - app/(dashboard)/shipping/tracking/pending/page.tsx - Review queue            
+ - Add reviewStatus field to tracking: pending_review | approved | rejected     
+ - Add autoApproved boolean + trustedSenders table                              
+                                                                                
+ Implementation Order                                                           
+                                                                                
+ 1. Carrier Auto-Detection - Quick win, improves existing manual flow           
+ 2. Enhanced Tracking UI - Show live status + timeline on order page            
+ 3. Tracking Service Integration - Tracktry (free tier)                         
+ 4. Email Ingestion - Auto-parse Dripshipper emails                             
+ 5. Manual Override / Review Queue - Safety net for parsing failures            
+ 6. Customer Notifications - Email on status changes                            
+                                                                                
+ Step-by-Step Guidance                                                          
+                                                                                
+ During implementation, I'll tell you:                                          
+ - What service to go to (Tracktry dashboard, Resend dashboard, etc.)           
+ - What API keys/secrets you need to create                                     
+ - What values to add to your .env.local                                        
+ - What webhook URLs to configure in each service                               
+                                                                                
+ Choices Made                                                                   
+                                                                                
+ - Tracking Service: Tracktry (free tier - 100/month)                           
+ - Email Ingestion: Yes, build it                                               
+ - Customer Notifications: Email only (shipped, out for delivery, delivered)    
+                                                                                
+ Environment Variables                                                          
+                                                                                
+ # Tracking Service                                                             
+ TRACKTRY_API_KEY=...                                                           
+                                                                                
+ # Email Ingestion                                                              
+ RESEND_INBOUND_WEBHOOK_SECRET=...                                              
+                                                                                
+ ---                                                                            
+ Phase 10: Notification Center                                                  
+                                                                                
+ - Notification preferences page                                                
+ - Full notification center with history                                        
+ - Desktop push notifications (browser)                                         
+                                                                                
+ ---                                                                            
+ Post-Implementation: AUTOMATION.md                                             
+                                                                                
+ After Phase 9 is complete and configured, create comprehensive AUTOMATION.md   
+ in project root:                                                               
+                                                                                
+ Contents:                                                                      
+ - Full fulfillment pipeline architecture diagram                               
+ - Step-by-step setup guide with screenshots                                    
+ - Email ingestion configuration (Resend inbound setup)                         
+ - Tracktry API setup and webhook configuration                                 
+ - Available webhook endpoints and their purposes                               
+ - Manual override / review queue usage                                         
+ - How to extend for new carriers/suppliers                                     
+ - Troubleshooting common issues                                                
+                                                                                
+ Future Section (placeholder):                                                  
+ - Node-based workflow builder vision                                           
+ - Custom automation pipelines                                                  
+ - Integration with external services                                           
+                                                                                
+ Node-Based Automation Builder                                                  
+                                                                                
+ Vision                                                                         
+                                                                                
+ Visual workflow builder (React Flow) integrated into the dashboard. Users      
+ create custom automation flows for any business operation.                     
+                                                                                
+ NOT building our own AI — users bring their own API keys (OpenAI, Anthropic,   
+ etc.) and we provide the infrastructure to use them.                           
+                                                                                
+ ┌─────────────────────────────────────────────────────────────────────────┐    
+ │                     AUTOMATION CANVAS (React Flow)                       │   
+ │                                                                          │   
+ │   ┌─────────────┐      ┌─────────────┐      ┌─────────────┐            │     
+ │   │   TRIGGER   │ ───▶ │  CONDITION  │ ───▶ │   ACTION    │            │     
+ │   │ New Order   │      │ If > $100   │      │ Send Email  │            │     
+ │   └─────────────┘      └─────────────┘      └──────┬──────┘            │     
+ │                                                     │                   │    
+ │                              ┌──────────────────────┘                   │    
+ │                              ▼                                          │    
+ │                        ┌─────────────┐      ┌─────────────┐            │     
+ │                        │   ACTION    │ ───▶ │   ACTION    │            │     
+ │                        │ Slack Notify│      │ Update Sheet│            │     
+ │                        └─────────────┘      └─────────────┘            │     
+ │                                                                          │   
+ └─────────────────────────────────────────────────────────────────────────┘    
+                                                                                
+ Workflow Types                                                                 
+                                                                                
+ Templates + Custom:                                                            
+ - Pre-built templates for beginners (marketing flows, order fulfillment, etc.) 
+ - Blank canvas for advanced users                                              
+ - Templates help users understand what's possible before building custom       
+                                                                                
+ Execution Engine                                                               
+                                                                                
+ Both immediate AND background:                                                 
+ - Real-time: Instant execution for webhooks, notifications                     
+ - Queued: Background processing via Inngest for heavy tasks                    
+ - User chooses per workflow                                                    
+                                                                                
+ Node Categories                                                                
+                                                                                
+ 1. Triggers (What starts the workflow)                                         
+ - Order Events: created, paid, shipped, delivered, refunded                    
+ - Customer Events: signed up, updated, abandoned cart                          
+ - Subscription Events: renewed, canceled, payment failed                       
+ - Inventory Events: low stock, out of stock, restocked                         
+ - Scheduled: cron expressions, specific times                                  
+ - Webhook: external service calls your endpoint                                
+ - Manual: button click in dashboard                                            
+                                                                                
+ 2. Conditions (Decision logic)                                                 
+ - If/Else: amount > $X, status == Y                                            
+ - Switch: multiple branches based on value                                     
+ - Filter: only proceed if condition met                                        
+ - Wait: delay execution by time period                                         
+ - Wait for Event: pause until another event occurs                             
+                                                                                
+ 3. Actions (What happens)                                                      
+ - Email: send via connected provider                                           
+ - Notification: in-app, push, SMS                                              
+ - Database: create/update records                                              
+ - HTTP: call external APIs                                                     
+ - Slack/Discord: post messages                                                 
+ - Google Workspace: Sheets, Docs, Calendar                                     
+ - AI: process with user's API key (GPT, Claude, etc.)                          
+ - Internal: update order status, inventory, etc.                               
+                                                                                
+ Connectors (Launch Set)                                                        
+ ┌────────────────────────┬─────────────────────────────────────────┐           
+ │       Connector        │              Capabilities               │           
+ ├────────────────────────┼─────────────────────────────────────────┤           
+ │ Email (Gmail, Outlook) │ Send/receive, parse inbox, auto-respond │           
+ ├────────────────────────┼─────────────────────────────────────────┤           
+ │ Google Workspace       │ Sheets, Docs, Calendar, Drive           │           
+ ├────────────────────────┼─────────────────────────────────────────┤           
+ │ Slack/Discord          │ Post messages, receive commands, bots   │           
+ ├────────────────────────┼─────────────────────────────────────────┤           
+ │ HTTP/Webhooks          │ Call any API, receive external webhooks │           
+ └────────────────────────┴─────────────────────────────────────────┘           
+ More connectors added over time based on demand.                               
+                                                                                
+ AI Integration                                                                 
+                                                                                
+ BYOK (Bring Your Own Key):                                                     
+ - Users add their API keys in Settings                                         
+ - Supported: OpenAI, Anthropic, Google AI, local models                        
+ - Keys encrypted, never logged                                                 
+ - Usage tracked per workflow                                                   
+                                                                                
+ AI Nodes:                                                                      
+ - Text Generation: Generate content, responses                                 
+ - Classification: Categorize inputs                                            
+ - Extraction: Pull data from unstructured text                                 
+ - Summarization: Condense long content                                         
+ - Translation: Multi-language support                                          
+ - Custom Prompt: User-defined prompts                                          
+                                                                                
+ Future (with revenue):                                                         
+ - Platform credits as promotional incentives                                   
+ - "Get this tier, get $500 in AI credits"                                      
+                                                                                
+ AI Chatbot System                                                              
+                                                                                
+ Two types of bots:                                                             
+                                                                                
+ 1. Platform Assistants (Built-in)                                              
+ - Workflow Assistant: Helps build workflows, suggests nodes                    
+ - Business Copilot: Answers questions about user's data, generates reports     
+                                                                                
+ 2. Custom Bots (User-created)                                                  
+ - RAG-based: Learns from user's docs/data                                      
+ - Contextual: Understands the app, not just a talking buddy                    
+ - Deployment options:                                                          
+   - Embed widget (JS snippet for storefront)                                   
+   - API endpoint (custom integrations)                                         
+                                                                                
+ Subscription Tiers & Automation                                                
+ ┌─────────┬──────────────────┬────────────────────────────────────┐            
+ │  Tier   │ Executions/Month │              Features              │            
+ ├─────────┼──────────────────┼────────────────────────────────────┤            
+ │ Free    │ 100              │ Basic triggers, limited connectors │            
+ ├─────────┼──────────────────┼────────────────────────────────────┤            
+ │ Starter │ 1,000            │ All triggers, basic connectors     │            
+ ├─────────┼──────────────────┼────────────────────────────────────┤            
+ │ Growth  │ 10,000           │ All connectors, AI nodes           │            
+ ├─────────┼──────────────────┼────────────────────────────────────┤            
+ │ Pro     │ Unlimited        │ Priority execution, advanced AI    │            
+ └─────────┴──────────────────┴────────────────────────────────────┘            
+ Free tier philosophy:                                                          
+ - Enough to taste, not enough for real business                                
+ - Some features always free (mp3 player, basic dashboard)                      
+ - Encourages upgrade for serious use                                           
+                                                                                
+ Pages to Implement                                                             
+                                                                                
+ 1. /automation (Workflows)                                                     
+ - List of user's workflows                                                     
+ - Create new, edit, duplicate, delete                                          
+ - Enable/disable toggle                                                        
+ - Execution stats per workflow                                                 
+                                                                                
+ 2. /automation/triggers                                                        
+ - Available trigger types                                                      
+ - Connected services status                                                    
+ - Webhook URLs for external triggers                                           
+                                                                                
+ 3. /automation/history                                                         
+ - Execution log with timestamps                                                
+ - Success/failure status                                                       
+ - Input/output data                                                            
+ - Retry failed executions                                                      
+                                                                                
+ 4. /automation/editor/[id]                                                     
+ - React Flow canvas                                                            
+ - Node palette (drag to add)                                                   
+ - Properties panel (configure selected node)                                   
+ - Test execution button                                                        
+ - Version history                                                              
+                                                                                
+ Tech Stack for Automation                                                      
+ ┌───────────┬──────────────────────────────────────────┐                       
+ │ Component │                Technology                │                       
+ ├───────────┼──────────────────────────────────────────┤                       
+ │ Canvas    │ React Flow                               │                       
+ ├───────────┼──────────────────────────────────────────┤                       
+ │ Execution │ Inngest (already integrated)             │                       
+ ├───────────┼──────────────────────────────────────────┤                       
+ │ AI        │ User's API keys via unified interface    │                       
+ ├───────────┼──────────────────────────────────────────┤                       
+ │ Storage   │ Postgres (workflow definitions as JSONB) │                       
+ ├───────────┼──────────────────────────────────────────┤                       
+ │ Real-time │ Pusher (execution status updates)        │                       
+ └───────────┴──────────────────────────────────────────┘                       
+ Database Schema Additions                                                      
+                                                                                
+ // Workflow definition                                                         
+ workflows: {                                                                   
+   id: string                                                                   
+   workspaceId: string                                                          
+   name: string                                                                 
+   description: string                                                          
+   trigger: jsonb        // trigger config                                      
+   nodes: jsonb          // React Flow nodes                                    
+   edges: jsonb          // React Flow edges                                    
+   enabled: boolean                                                             
+   createdAt: timestamp                                                         
+   updatedAt: timestamp                                                         
+ }                                                                              
+                                                                                
+ // Execution history                                                           
+ workflowExecutions: {                                                          
+   id: string                                                                   
+   workflowId: string                                                           
+   triggeredBy: string   // event type or manual                                
+   status: string        // pending | running | success | failed                
+   input: jsonb                                                                 
+   output: jsonb                                                                
+   error: text                                                                  
+   startedAt: timestamp                                                         
+   completedAt: timestamp                                                       
+ }                                                                              
+                                                                                
+ // User API keys (encrypted)                                                   
+ apiKeys: {                                                                     
+   id: string                                                                   
+   userId: string                                                               
+   provider: string      // openai | anthropic | google                         
+   encryptedKey: text                                                           
+   createdAt: timestamp                                                         
+ }                                                                              
+                                                                                
+ // Custom chatbots                                                             
+ chatbots: {                                                                    
+   id: string                                                                   
+   workspaceId: string                                                          
+   name: string                                                                 
+   systemPrompt: text                                                           
+   model: string                                                                
+   apiKeyId: string      // references user's key                               
+   embedEnabled: boolean                                                        
+   apiEnabled: boolean                                                          
+   createdAt: timestamp                                                         
+ }                                                                              
+                                                                                
+ Implementation Order                                                           
+                                                                                
+ 1. Database schemas - workflows, executions, api_keys tables                   
+ 2. Workflow list page - CRUD for workflows                                     
+ 3. React Flow editor - Basic canvas with nodes                                 
+ 4. Execution engine - Connect to Inngest                                       
+ 5. Basic triggers - Order events, scheduled, webhook                           
+ 6. Basic actions - Email, notification, HTTP                                   
+ 7. History page - Execution log                                                
+ 8. Connectors - Gmail, Google Sheets, Slack                                    
+ 9. AI nodes - BYOK integration                                                 
+ 10. Custom chatbots - RAG setup, embed widget                                  
+                                                                                
+ ---                                                                            
+ Additional Features (Side Notes)                                               
+                                                                                
+ brain.fm Integration                                                           
+                                                                                
+ Add to radio/ambient section:                                                  
+ - Switch between SomaFM and brain.fm                                           
+ - brain.fm for focus music (requires subscription)                             
+ - User can connect their brain.fm account                                      
+                                                                                
+ ---                                                                            
+ Post-Implementation: SAAS.md                                                   
+                                                                                
+ Create SAAS.md in project root - a comprehensive plan to monetize Quickdash as  
+ a SaaS platform:                                                               
+                                                                                
+ Vision: Other people pay to rent the infrastructure and start their own        
+ ecommerce brands                                                               
+                                                                                
+ Key Areas to Plan:                                                             
+ - Multi-tenancy architecture (separate stores/databases per tenant)            
+ - Subscription billing (Stripe/Polar for platform subscriptions)               
+ - Onboarding flow for new tenants                                              
+ - Admin super-dashboard to manage all tenants                                  
+ - Usage-based billing vs flat rate tiers                                       
+ - White-label customization per tenant                                         
+ - Shared vs dedicated infrastructure                                           
+ - Data isolation and security                                                  
+ - Dripshipper-style supplier integrations per tenant                           
+                                                                                
+ Quickdash Scope:                                                                
+ - Skate gear, coffee, matcha, tea, apparel                                     
+ - All with Quickdash branding (your own store)                                  
+ - Platform also available to others for their brands                           
+                                                                                
+ This is a separate planning exercise after Phase 9 is complete.                
+                                                                                
+ ---                                                                            
+ Files Created                                                                  
+                                                                                
+ Database Schemas                                                               
+                                                                                
+ - packages/db/src/schema/webhooks.ts - Webhook endpoints, events log,          
+ idempotency                                                                    
+ - packages/db/src/schema/presence.ts - User presence, page viewers             
+ - packages/db/src/schema/notifications.ts - In-app notifications, preferences  
+                                                                                
+ Webhook Infrastructure                                                         
+                                                                                
+ - lib/webhooks/index.ts - Shared webhook utilities (log, idempotency, status)  
+ - lib/webhooks/verify.ts - Signature verification (Polar, Resend, HMAC)        
+ - lib/webhooks/polar.ts - Polar types and event parsing                        
+ - lib/webhooks/resend.ts - Resend types and event parsing                      
+ - app/api/webhooks/polar/route.ts - Polar webhook endpoint                     
+ - app/api/webhooks/resend/route.ts - Resend webhook endpoint                   
+                                                                                
+ Inngest Functions                                                              
+                                                                                
+ - lib/inngest/polar-handlers.ts - Order, subscription, checkout processors     
+ - lib/inngest/resend-handlers.ts - Email delivery status processors            
+ - lib/inngest/presence-handlers.ts - Stale presence cleanup (cron)             
+                                                                                
+ Real-Time Hooks                                                                
+                                                                                
+ - hooks/use-presence.ts - Global admin presence tracking                       
+ - hooks/use-page-presence.ts - Page-specific viewers                           
+ - hooks/use-live-notifications.ts - Real-time notification bell                
+ - hooks/use-live-orders.ts - Live order updates                                
+ - hooks/use-live-inventory.ts - Live inventory alerts                          
+ - hooks/use-live-stats.ts - Dashboard stats live updates                       
+ - hooks/use-live-products.ts - Products table live updates                     
+ - hooks/use-live-customers.ts - Customers table live updates                   
+ - hooks/use-live-subscriptions.ts - Subscriptions table live updates           
+ - hooks/use-live-chart-data.ts - Live chart data updates                       
+                                                                                
+ Components                                                                     
+                                                                                
+ - components/presence/online-users.tsx - Online team members widget            
+ - components/presence/page-viewers.tsx - "X is viewing this" indicator         
+ - components/presence/user-status-badge.tsx - Online status dot                
+ - components/notifications/notification-bell.tsx - Header notification         
+ dropdown                                                                       
+ - components/animated-number.tsx - Odometer-style animated number display      
+ - components/live-stats-grid.tsx - Reusable live stats grid component          
+ - components/top-products-live.tsx - Live top products with Pusher updates     
+ - app/(dashboard)/dashboard-stats.tsx - Dashboard KPI cards with live updates  
+ - app/(dashboard)/dashboard-charts.tsx - Dashboard revenue chart with live     
+ updates                                                                        
+ - app/(dashboard)/analytics/analytics-stats.tsx - Analytics stats client       
+ wrapper                                                                        
+ - app/(dashboard)/analytics/sales/sales-stats.tsx - Sales stats client wrapper 
+                                                                                
+ Settings/Notification Preferences                                              
+                                                                                
+ - app/(dashboard)/settings/notifications/page.tsx - Notification preferences   
+ page                                                                           
+ - app/(dashboard)/settings/notifications/notification-preferences.tsx - Client 
+  component for preferences UI                                                  
+                                                                                
+ ---                                                                            
+ Files Modified                                                                 
+                                                                                
+ - packages/db/src/schema/index.ts - Export new schemas                         
+ - apps/admin/env.ts - Added POLAR_WEBHOOK_SECRET, RESEND_WEBHOOK_SECRET        
+ - apps/admin/lib/inngest-functions.ts - Registered all webhook handlers        
+ - apps/admin/app/api/pusher/auth/route.ts - Handle new channel patterns        
+ (products, customers, subscriptions)                                           
+ - apps/admin/components/header-toolbar.tsx - Replaced placeholder with         
+ NotificationBell, added OnlineUsers                                            
+ - apps/admin/app/(dashboard)/orders/actions.ts - Added Pusher broadcasts       
+ - apps/admin/app/(dashboard)/inventory/actions.ts - Added Pusher broadcasts    
+ - apps/admin/app/(dashboard)/products/actions.ts - Added Pusher broadcasts for 
+  CRUD operations                                                               
+ - apps/admin/app/(dashboard)/subscriptions/actions.ts - Added Pusher           
+ broadcasts                                                                     
+ - apps/admin/app/(dashboard)/settings/sessions/sessions-client.tsx - Added     
+ presence indicators                                                            
+ - apps/admin/app/(dashboard)/products/products-table.tsx - Integrated          
+ useLiveProducts hook                                                           
+ - apps/admin/app/(dashboard)/customers/customers-table.tsx - Integrated        
+ useLiveCustomers hook                                                          
+ - apps/admin/app/(dashboard)/subscriptions/subscriptions-table.tsx -           
+ Integrated useLiveSubscriptions hook                                           
+ - apps/admin/app/(dashboard)/orders/orders-table.tsx - Integrated              
+ useLiveOrders hook                                                             
+ - apps/admin/app/(dashboard)/analytics/page.tsx - Uses AnalyticsStats client   
+ wrapper                                                                        
+ - apps/admin/app/(dashboard)/analytics/sales/page.tsx - Uses SalesStats client 
+  wrapper                                                                       
+ - apps/admin/app/(dashboard)/analytics/analytics-charts.tsx - Improved chart   
+ animations                                                                     
+ - apps/admin/app/(dashboard)/analytics/sales/sales-charts.tsx - Improved chart 
+  animations                                                                    
+ - apps/admin/components/app-sidebar.tsx - Added Account and Notifications to   
+ Settings navigation                                                            
+ - apps/admin/components/command-menu.tsx - Added Account and Notification      
+ Preferences quick access                                                       
+ - apps/admin/components/ui/sidebar.tsx - Added momentum scrolling for mobile   
+                                                                                
+ ---                                                                            
+ Pusher Channel Design                                                          
+ ┌───────────────────────────┬──────────┬─────────────────────────────────┐     
+ │          Channel          │   Type   │             Purpose             │     
+ ├───────────────────────────┼──────────┼─────────────────────────────────┤     
+ │ private-user-{userId}     │ Private  │ User-specific events (existing) │     
+ ├───────────────────────────┼──────────┼─────────────────────────────────┤     
+ │ private-orders            │ Private  │ Order broadcasts to all admins  │     
+ ├───────────────────────────┼──────────┼─────────────────────────────────┤     
+ │ private-inventory         │ Private  │ Inventory alerts to all admins  │     
+ ├───────────────────────────┼──────────┼─────────────────────────────────┤     
+ │ private-analytics         │ Private  │ Real-time analytics updates     │     
+ ├───────────────────────────┼──────────┼─────────────────────────────────┤     
+ │ private-products          │ Private  │ Product CRUD broadcasts         │     
+ ├───────────────────────────┼──────────┼─────────────────────────────────┤     
+ │ private-customers         │ Private  │ Customer events                 │     
+ ├───────────────────────────┼──────────┼─────────────────────────────────┤     
+ │ private-subscriptions     │ Private  │ Subscription events             │     
+ ├───────────────────────────┼──────────┼─────────────────────────────────┤     
+ │ presence-admin            │ Presence │ Global admin online status      │     
+ ├───────────────────────────┼──────────┼─────────────────────────────────┤     
+ │ presence-page-{type}-{id} │ Presence │ Who's viewing specific page     │     
+ └───────────────────────────┴──────────┴─────────────────────────────────┘     
+ Event Names                                                                    
+                                                                                
+ # Orders                                                                       
+ order:created, order:updated, order:payment-received, order:shipped            
+                                                                                
+ # Inventory                                                                    
+ inventory:low-stock, inventory:out-of-stock, inventory:restocked,              
+ inventory:updated                                                              
+                                                                                
+ # Products                                                                     
+ product:created, product:updated, product:deleted, product:bulk-updated        
+                                                                                
+ # Customers                                                                    
+ customer:created, customer:updated                                             
+                                                                                
+ # Subscriptions                                                                
+ subscription:created, subscription:updated, subscription:canceled              
+                                                                                
+ # Email                                                                        
+ email:delivered, email:bounced, email:opened                                   
+                                                                                
+ ---                                                                            
+ Environment Variables                                                          
+                                                                                
+ # Webhook Secrets                                                              
+ POLAR_WEBHOOK_SECRET=...                                                       
+ RESEND_WEBHOOK_SECRET=whsec_...                                                
+                                                                                
+ ---                                                                            
+ Verification Steps                                             
+                                                                                
+ 1. Polar: Configure webhook URL in Polar dashboard, test with checkout         
+ 2. Pusher: Subscribe to private-orders in browser console, trigger order       
+ 3. Presence: Open two browsers, verify users see each other on same page       
+ 4. Sessions: Check sessions page shows online status indicators                
+ 5. Idempotency: Send same webhook twice, verify only processed once            
+6. Notifications: Check notification bell updates in real-time
+
+---
+---
+---
+
+# MULTI-TENANT BaaS IMPLEMENTATION PLAN
+
+## Overview
+
+Transform quickdash into a multi-tenant Backend-as-a-Service (BaaS) where external frontends like gemsutopia can connect via API and be fully managed from the quickdash dashboard.
+
+**Current State:**
+- ✅ Database schema has `workspace_id` on all 29 business tables
+- ✅ Workspaces, workspaceMembers, storefronts schemas exist with tier limits
+- ✅ Onboarding flow creates workspaces and sets active workspace
+- ❌ **CRITICAL GAP:** 27 action files don't filter by workspace_id - data leaks across workspaces
+
+**Target State:**
+- User signs up → creates workspace → connects storefront(s) via API key
+- External frontends (gemsutopia) call quickdash Storefront API
+- Admin dashboard shows only active workspace's data
+- Complete data isolation between workspaces
+
+---
+
+## Phase 1: Workspace Context & Isolation (Core Foundation)
+
+### 1.1 Create Workspace Context Library
+
+**New file:** `apps/admin/lib/workspace.ts`
+
+```typescript
+// Core functions:
+getActiveWorkspace()     // Get user's active workspace from userWorkspacePreferences
+requireWorkspace()       // Throws if no workspace - use in all server actions
+getUserWorkspaces()      // List workspaces user has access to (owned + member)
+setActiveWorkspace(id)   // Switch active workspace
+checkWorkspacePermission(permission) // Check role-based access
+```
+
+### 1.2 Update All Server Actions (27 files)
+
+Add workspace filtering to every query. Pattern:
+
+```typescript
+// BEFORE (current - leaks data):
+const data = await db.select().from(products)
+
+// AFTER (isolated):
+const workspace = await requireWorkspace()
+const data = await db.select().from(products)
+  .where(eq(products.workspaceId, workspace.id))
+```
+
+**Files to update:**
+- `apps/admin/app/(dashboard)/products/actions.ts`
+- `apps/admin/app/(dashboard)/orders/actions.ts`
+- `apps/admin/app/(dashboard)/customers/actions.ts`
+- `apps/admin/app/(dashboard)/inventory/actions.ts`
+- `apps/admin/app/(dashboard)/subscriptions/actions.ts`
+- `apps/admin/app/(dashboard)/reviews/actions.ts`
+- `apps/admin/app/(dashboard)/marketing/actions.ts`
+- `apps/admin/app/(dashboard)/shipping/actions.ts`
+- `apps/admin/app/(dashboard)/suppliers/actions.ts`
+- `apps/admin/app/(dashboard)/content/actions.ts`
+- ... and 17 more
+
+---
+
+## Phase 2: Workspace Switcher UI
+
+### 2.1 Transform Servers Sidebar
+
+**File:** `apps/admin/components/servers-sidebar.tsx`
+
+Currently shows mock servers. Transform to:
+- Fetch real workspaces user has access to
+- Show workspace icons/avatars
+- Active workspace indicator
+- Click to switch workspace
+- "+" button to create new workspace
+
+### 2.2 Workspace Provider Context
+
+**New file:** `apps/admin/components/workspace-provider.tsx`
+
+React context that:
+- Provides `activeWorkspace` to all components
+- Handles workspace switching
+- Shows workspace selector if none active
+
+**Modify:** `apps/admin/app/(dashboard)/layout.tsx` - wrap with WorkspaceProvider
+
+---
+
+## Phase 3: Storefront API Layer
+
+This is how external frontends (gemsutopia) connect to quickdash.
+
+### 3.1 API Authentication
+
+**New file:** `apps/admin/lib/storefront-auth.ts`
+
+```typescript
+validateStorefrontRequest(request)
+// - Extract X-Storefront-Key header
+// - Look up storefront by apiKey
+// - Check storefront.isActive
+// - Return { storefront, workspaceId } or error
+```
+
+### 3.2 Storefront API Routes
+
+**New directory:** `apps/admin/app/api/storefront/`
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/storefront/products` | GET | List products |
+| `/api/storefront/products/[id]` | GET | Get product |
+| `/api/storefront/categories` | GET | List categories |
+| `/api/storefront/cart` | POST | Create/update cart |
+| `/api/storefront/checkout` | POST | Create checkout session |
+| `/api/storefront/orders` | POST | Create order |
+| `/api/storefront/orders/[id]` | GET | Get order status |
+| `/api/storefront/customers` | POST | Register customer |
+| `/api/storefront/customers/auth` | POST | Customer login |
+
+All routes:
+- Validate API key via storefront-auth
+- Filter by storefront's workspace_id
+- Respect storefront.permissions (products, orders, etc.)
+- Rate limit based on workspace tier
+
+### 3.3 Rate Limiting
+
+**Modify:** `apps/admin/lib/redis.ts`
+
+Add rate limiting per storefront:
+- Free: 100 req/min
+- Starter: 500 req/min
+- Growth: 2000 req/min
+- Pro: 10000 req/min
+
+---
+
+## Phase 4: Storefront Management UI
+
+### 4.1 Storefronts Settings Page
+
+**New file:** `apps/admin/app/(dashboard)/settings/storefronts/page.tsx`
+
+Features:
+- List connected storefronts
+- Create new storefront (name, domain)
+- View API key (show/hide, copy)
+- Regenerate API key/secret
+- Toggle permissions
+- Delete storefront
+
+### 4.2 API Key Component
+
+**New file:** `apps/admin/components/api-key-display.tsx`
+
+- Show/hide toggle
+- Copy to clipboard
+- "Regenerate" with confirmation modal
+
+### 4.3 Storefront Actions
+
+**New file:** `apps/admin/app/(dashboard)/settings/storefronts/actions.ts`
+
+```typescript
+createStorefront({ name, domain })
+updateStorefront(id, data)
+deleteStorefront(id)
+regenerateApiKey(id)
+regenerateApiSecret(id)
+```
+
+---
+
+## Phase 5: Auctions Feature
+
+### 5.1 Database Schema
+
+**New file:** `packages/db/src/schema/auctions.ts`
+
+```typescript
+auctions: {
+  id, workspaceId, productId
+  type: 'reserve' | 'no_reserve'
+  startingPrice, reservePrice (nullable for no-reserve)
+  currentBid, currentBidderId
+  startTime, endTime
+  status: 'scheduled' | 'active' | 'ended' | 'sold' | 'unsold'
+  autoExtend: boolean (extend if bid in last X minutes)
+}
+
+bids: {
+  id, auctionId, userId
+  amount, maxBid (for auto-bidding)
+  createdAt
+}
+```
+
+### 5.2 Auctions Dashboard
+
+**New files:**
+- `apps/admin/app/(dashboard)/auctions/page.tsx` - List auctions
+- `apps/admin/app/(dashboard)/auctions/[id]/page.tsx` - Auction detail
+- `apps/admin/app/(dashboard)/auctions/actions.ts` - CRUD actions
+
+Features:
+- Create auction from existing product
+- Set reserve/no-reserve, start/end time
+- View bid history
+- Manual end/cancel auction
+
+### 5.3 Storefront API for Auctions
+
+- `GET /api/storefront/auctions` - List active auctions
+- `GET /api/storefront/auctions/[id]` - Auction details + bid history
+- `POST /api/storefront/auctions/[id]/bid` - Place bid
+- Real-time updates via Pusher for bid notifications
+
+---
+
+## Phase 6: Gemsutopia Integration
+
+### 6.1 Schema Mapping Strategy
+
+| Gemsutopia Feature | Quickdash Approach |
+|-------------------|-------------------|
+| Products (with gemstone specs) | Use products.metadata JSONB for custom fields (carat, cut, clarity, etc.) |
+| Orders | Direct mapping with workspace_id |
+| Customers | Users table (global) + workspace-scoped orders |
+| Auctions | Core quickdash auctions feature (Phase 5) |
+| Crypto payments | Store payment method in orders, integrate via webhooks |
+
+**JSONB Metadata Example for Gemstones:**
+```json
+{
+  "gemstone": {
+    "type": "sapphire",
+    "carat": 2.5,
+    "cut": "brilliant",
+    "clarity": "VS1",
+    "color": "blue",
+    "origin": "Sri Lanka",
+    "certification": "GIA"
+  }
+}
+```
+
+Future: Add workspace-level custom_fields table for user-defined field schemas with validation.
+
+### 6.2 Gemsutopia Frontend Changes
+
+Transform gemsutopia from direct DB access to API calls:
+
+```typescript
+// BEFORE (gemsutopia - direct DB):
+const products = await db.query.products.findMany()
+
+// AFTER (gemsutopia - calls quickdash API):
+const res = await fetch('https://api.quickdash.io/storefront/products', {
+  headers: { 'X-Storefront-Key': process.env.QUICKDASH_API_KEY }
+})
+const { products } = await res.json()
+```
+
+### 6.3 Data Migration Path
+
+1. Create workspace for Reese in quickdash
+2. Generate storefront API key
+3. Export gemsutopia data (products, orders, customers)
+4. Import into quickdash with workspace_id
+5. Update gemsutopia frontend to use API
+6. Test end-to-end
+7. Switch DNS/go live
+
+---
+
+## Phase 7: Multi-Tenant Integrations
+
+This is critical - integrations fall into two categories:
+
+### 7.1 Platform-Level Integrations (You Configure Once)
+
+These serve the entire platform - users never touch them:
+
+| Integration | Purpose | Why Platform-Level |
+|-------------|---------|-------------------|
+| **Redis/Upstash** | Caching, rate limiting, sessions | Backend infrastructure |
+| **Inngest** | Job queue, background tasks | Backend infrastructure |
+| **Sentry** | Error tracking, monitoring | You need to see all bugs |
+| **Neon DB** | Database | Single shared database |
+| **Pusher** | Real-time notifications | Shared infrastructure |
+
+### 7.2 Workspace-Level Integrations (Users Configure)
+
+Each workspace needs their OWN credentials for:
+
+| Integration | What User Configures | UX Approach |
+|-------------|---------------------|-------------|
+| **Stripe** | Stripe Connect OAuth | Button: "Connect Stripe" → OAuth flow → stores `stripe_account_id` |
+| **PayPal** | PayPal Partner Referrals | Button: "Connect PayPal" → OAuth flow |
+| **Polar** | Polar OAuth | Button: "Connect Polar" → OAuth flow |
+| **Resend (Email)** | API key + verified domain | User enters API key + domain |
+| **Shipping (EasyPost, etc.)** | API key | User enters API key |
+| **Custom SMTP** | SMTP credentials | User enters host/port/credentials |
+
+### 7.3 OAuth Connect Strategy (Minimize Key Copying)
+
+**Goal:** Users click a button, authorize, done. No copying API keys from other dashboards.
+
+**Stripe Connect Example:**
+```
+1. User clicks "Connect Stripe"
+2. Redirects to Stripe OAuth: https://connect.stripe.com/oauth/authorize?client_id=xxx&redirect_uri=xxx
+3. User authorizes their Stripe account
+4. Stripe redirects back with auth code
+5. We exchange code for stripe_account_id
+6. Store stripe_account_id in workspace settings
+7. All payments for this workspace go through their Stripe account
+```
+
+**Integrations with OAuth:**
+- Stripe Connect ✅
+- PayPal Partner Referrals ✅
+- Polar OAuth ✅
+- Google (for analytics) ✅
+
+**Integrations Requiring Manual Keys:**
+- Resend (no OAuth, user must copy API key)
+- EasyPost (no OAuth)
+- Custom SMTP
+
+### 7.4 Database Schema for Workspace Integrations
+
+**New file:** `packages/db/src/schema/integrations.ts`
+
+```typescript
+workspaceIntegrations: {
+  id, workspaceId
+  provider: 'stripe' | 'paypal' | 'polar' | 'resend' | 'easypost' | 'smtp'
+
+  // OAuth integrations store account IDs (not raw keys)
+  accountId: text  // stripe_account_id, paypal_merchant_id, etc.
+
+  // API key integrations store encrypted keys
+  encryptedCredentials: jsonb  // { apiKey: "encrypted...", domain: "...", etc. }
+
+  isActive: boolean
+  lastVerifiedAt: timestamp
+  createdAt, updatedAt
+}
+```
+
+### 7.5 Payment Flow (Stripe Connect)
+
+```
+Customer → Gemsutopia checkout → Quickdash API → Stripe Connect
+                                      ↓
+                              Uses Reese's stripe_account_id
+                                      ↓
+                              Money goes to Reese's Stripe
+                                      ↓
+                              You (platform) can take a % fee via application_fee_amount
+```
+
+### 7.6 Email Flow (Per-Workspace Resend)
+
+```
+Order confirmation needed
+        ↓
+Quickdash looks up workspace's Resend API key
+        ↓
+Sends email via workspace's Resend account
+        ↓
+Email comes from their verified domain (e.g., orders@gemsutopia.ca)
+```
+
+### 7.7 Integrations Settings UI
+
+**New file:** `apps/admin/app/(dashboard)/settings/integrations/page.tsx`
+
+Sections:
+- **Payments:** Connect Stripe | Connect PayPal | Connect Polar
+- **Email:** Configure Resend API key + domain, or Custom SMTP
+- **Shipping:** Configure EasyPost API key (or individual carriers)
+
+Each integration shows:
+- Connection status (Connected ✅ / Not configured ⚠️)
+- "Connect" or "Configure" button
+- "Disconnect" option
+- Last verified timestamp
+
+### 7.8 Superadmin Panel
+
+You get a special admin panel (separate from workspace dashboards) that shows:
+- All workspaces
+- All users
+- Platform-wide analytics
+- Platform integrations (Sentry, Redis, etc.)
+- Subscription management
+- Feature flags per tier
+
+**Access:** Via special role check, not visible to regular users.
+
+---
+
+## Database Architecture Decision
+
+**Single Shared Database (Chosen Approach):**
+- All workspaces share one Neon PostgreSQL database
+- Data isolated via `workspace_id` foreign keys
+- Simpler to manage, cheaper initially
+- RLS policies as defense-in-depth
+
+**Future Option - Per-Workspace Databases:**
+- Enterprise tier could offer dedicated databases
+- More expensive, better isolation
+- Would require database provisioning automation
+- Not needed for MVP
+
+**Storage Limits:**
+- Track storage usage per workspace
+- Set limits based on tier (e.g., free: 1GB, pro: unlimited)
+- Alert when approaching limits
+
+---
+
+## Implementation Order
+
+### Phase 0: Fix Performance Blocker
+1. Delete `apps/admin/public/uploads/` (206MB of images)
+2. Add to `.gitignore`
+3. Fix upload route to use cloud storage instead of local filesystem
+
+### Phase A: Core Isolation (Foundation)
+1. Create `lib/workspace.ts` with context utilities
+2. Update products/orders/customers actions (high-traffic)
+3. Update remaining 24 action files
+4. Workspace switcher in servers-sidebar
+
+### Phase B: Storefront API
+1. Storefront auth middleware
+2. Core API routes (products, cart, checkout, orders)
+3. Storefront management UI
+4. Rate limiting integration
+
+### Phase C: Auctions Feature
+1. Auctions database schema
+2. Auctions dashboard pages
+3. Storefront auction API endpoints
+4. Real-time bid notifications (Pusher)
+
+### Phase D: Multi-Tenant Integrations
+1. Database schema for workspace integrations
+2. Stripe Connect OAuth flow
+3. PayPal/Polar OAuth flows
+4. Resend/SMTP manual configuration
+5. Integrations settings UI
+6. Superadmin panel (platform-level view)
+
+### Phase E: Gemsutopia Migration
+1. Create Reese's workspace
+2. Connect Reese's Stripe/PayPal/Resend
+3. Data migration scripts
+4. Update gemsutopia frontend to call quickdash API
+5. Testing & go-live
+
+---
+
+## Verification Plan
+
+1. **Unit Tests:** Workspace isolation in queries
+2. **Integration Tests:** Storefront API with API key auth
+3. **Manual Testing:**
+   - Create workspace A, add products
+   - Create workspace B, verify can't see workspace A's products
+   - Generate API key for workspace A
+   - Call storefront API, verify only workspace A's data returned
+4. **Security Audit:** Ensure no cross-workspace data leakage
+
+---
+
+## Decisions Made
+
+1. **Auctions:** Add as core quickdash feature (new sidebar section). Support both reserve and no-reserve auctions.
+
+2. **Custom Fields:** Start with JSONB metadata, plan for dedicated custom_fields table later for user-defined fields.
+
+3. **SDK vs Raw API:** REST API only for now. SDK deferred until name is finalized.
+
+---
+
+## Known Issues to Address
+
+### 🚨 BLOCKER: Performance Issue (Fix First)
+
+**Root Cause Found:** `apps/admin/public/uploads/` contains **206MB of images** (87 PNG files, 1-4MB each). Turbopack processes everything in `public/`, causing 6.3s compile times.
+
+**Fix:**
+1. Delete or move `public/uploads/` folder out of the repo
+2. Add `public/uploads/` to `.gitignore`
+3. Uploads should go to cloud storage (Supabase Storage, S3) not local filesystem
+4. Check where the upload functionality is saving files and fix it
+
+**Sidebar Length:** Separate task. User wants workspace-configurable sidebar presets (e.g., "sales-focused" vs "full-featured"). Needs UX design thinking - not part of this multi-tenant work.
+
+**Database Costs:** Single shared database for now. Future consideration: tiered storage limits per workspace, or self-hosted DB option for enterprise users
