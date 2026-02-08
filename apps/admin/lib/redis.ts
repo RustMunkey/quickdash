@@ -3,6 +3,11 @@ import Redis from "ioredis"
 const globalForRedis = globalThis as unknown as { redis: Redis | null }
 
 function createRedisClient(): Redis | null {
+	// Skip Redis during build — no need to connect while generating static pages
+	if (process.env.NEXT_PHASE === "phase-production-build") {
+		return null
+	}
+
 	const url = process.env.REDIS_URL
 	if (!url) {
 		if (process.env.NODE_ENV === "production") {
