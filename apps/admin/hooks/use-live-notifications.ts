@@ -44,23 +44,25 @@ export function useLiveNotifications({
 
 		const channel = pusher.subscribe(`private-user-${userId}`)
 
-		channel.bind("notification", (data: Notification) => {
+		const handleNotification = (data: Notification) => {
 			setNotifications((prev) => [data, ...prev])
 			if (!data.readAt) {
 				setUnreadCount((prev) => prev + 1)
 			}
 			callbackRef.current?.(data)
-		})
+		}
 
-		// Sync unread count from server
-		channel.bind("notifications:sync", (data: { unreadCount: number; notifications: Notification[] }) => {
+		const handleSync = (data: { unreadCount: number; notifications: Notification[] }) => {
 			setUnreadCount(data.unreadCount)
 			setNotifications(data.notifications)
-		})
+		}
+
+		channel.bind("notification", handleNotification)
+		channel.bind("notifications:sync", handleSync)
 
 		return () => {
-			channel.unbind_all()
-			pusher.unsubscribe(`private-user-${userId}`)
+			channel.unbind("notification", handleNotification)
+			channel.unbind("notifications:sync", handleSync)
 		}
 	}, [pusher, isConnected, enabled, userId])
 

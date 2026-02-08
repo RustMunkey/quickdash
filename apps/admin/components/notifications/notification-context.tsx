@@ -81,16 +81,17 @@ export function NotificationProvider({ userId, children }: NotificationProviderP
 
 		const channel = pusher.subscribe(`private-user-${userId}`)
 
-		channel.bind("notification", (data: Notification) => {
+		const handleNotification = (data: Notification) => {
 			setNotifications((prev) => [data, ...prev])
 			if (!data.readAt) {
 				setUnreadCount((prev) => prev + 1)
 			}
-		})
+		}
+
+		channel.bind("notification", handleNotification)
 
 		return () => {
-			channel.unbind_all()
-			pusher.unsubscribe(`private-user-${userId}`)
+			channel.unbind("notification", handleNotification)
 		}
 	}, [pusher, isConnected, userId])
 

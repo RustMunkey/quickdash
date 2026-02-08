@@ -364,16 +364,17 @@ export function MessagesSidebar({
 
 		const channel = pusher.subscribe(`private-user-${userId}`)
 
-		channel.bind("new-message", (data: Message) => {
+		const handleNewMessage = (data: Message) => {
 			setMessages((prev) => [...prev, data])
 			if (data.senderId !== userId) {
 				setUnreadChat((c) => c + 1)
 			}
-		})
+		}
+
+		channel.bind("new-message", handleNewMessage)
 
 		return () => {
-			channel.unbind_all()
-			pusher.unsubscribe(`private-user-${userId}`)
+			channel.unbind("new-message", handleNewMessage)
 		}
 	}, [pusher, userId])
 

@@ -98,7 +98,8 @@ export function DiscoverClient({
 		})
 
 		return () => {
-			pusher.unsubscribe(`private-user-${currentUser.id}`)
+			userChannel.unbind("friend-request")
+			userChannel.unbind("friend-accepted")
 		}
 	}, [pusher, currentUser.id, router])
 
