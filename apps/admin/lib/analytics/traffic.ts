@@ -1,6 +1,6 @@
 import { db } from "@quickdash/db/client"
 import { analyticsEvents } from "@quickdash/db/schema"
-import { sql, and, gte, lte, count, countDistinct } from "@quickdash/db/drizzle"
+import { sql, and, gte, lte, eq, count, countDistinct } from "@quickdash/db/drizzle"
 import type { DateRange, StatWithChange, TimeSeriesPoint } from "./types"
 
 function getPreviousRange(range: DateRange): DateRange {
@@ -16,54 +16,53 @@ function calcChange(current: number, previous: number): number {
   return Number((((current - previous) / previous) * 100).toFixed(1))
 }
 
-export async function getPageViews(range: DateRange): Promise<StatWithChange> {
+export async function getPageViews(range: DateRange, workspaceId: string): Promise<StatWithChange> {
   const prev = getPreviousRange(range)
 
   const [current] = await db
     .select({ count: count() })
     .from(analyticsEvents)
-    .where(and(gte(analyticsEvents.createdAt, range.from), lte(analyticsEvents.createdAt, range.to)))
+    .where(and(eq(analyticsEvents.workspaceId, workspaceId), gte(analyticsEvents.createdAt, range.from), lte(analyticsEvents.createdAt, range.to)))
 
   const [previous] = await db
     .select({ count: count() })
     .from(analyticsEvents)
-    .where(and(gte(analyticsEvents.createdAt, prev.from), lte(analyticsEvents.createdAt, prev.to)))
+    .where(and(eq(analyticsEvents.workspaceId, workspaceId), gte(analyticsEvents.createdAt, prev.from), lte(analyticsEvents.createdAt, prev.to)))
 
   const value = Number(current?.count ?? 0)
   const previousValue = Number(previous?.count ?? 0)
   return { value, previousValue, change: calcChange(value, previousValue) }
 }
 
-export async function getUniqueVisitors(range: DateRange): Promise<StatWithChange> {
+export async function getUniqueVisitors(range: DateRange, workspaceId: string): Promise<StatWithChange> {
   const prev = getPreviousRange(range)
 
   const [current] = await db
     .select({ count: countDistinct(analyticsEvents.visitorId) })
     .from(analyticsEvents)
-    .where(and(gte(analyticsEvents.createdAt, range.from), lte(analyticsEvents.createdAt, range.to)))
+    .where(and(eq(analyticsEvents.workspaceId, workspaceId), gte(analyticsEvents.createdAt, range.from), lte(analyticsEvents.createdAt, range.to)))
 
   const [previous] = await db
     .select({ count: countDistinct(analyticsEvents.visitorId) })
     .from(analyticsEvents)
-    .where(and(gte(analyticsEvents.createdAt, prev.from), lte(analyticsEvents.createdAt, prev.to)))
+    .where(and(eq(analyticsEvents.workspaceId, workspaceId), gte(analyticsEvents.createdAt, prev.from), lte(analyticsEvents.createdAt, prev.to)))
 
   const value = Number(current?.count ?? 0)
   const previousValue = Number(previous?.count ?? 0)
   return { value, previousValue, change: calcChange(value, previousValue) }
 }
 
-export async function getBounceRate(range: DateRange): Promise<StatWithChange> {
+export async function getBounceRate(range: DateRange, workspaceId: string): Promise<StatWithChange> {
   const prev = getPreviousRange(range)
 
   async function calcBounce(from: Date, to: Date): Promise<number> {
-    // Sessions with only 1 page view = bounce
     const sessions = await db
       .select({
         sessionId: analyticsEvents.sessionId,
         pages: count(),
       })
       .from(analyticsEvents)
-      .where(and(gte(analyticsEvents.createdAt, from), lte(analyticsEvents.createdAt, to)))
+      .where(and(eq(analyticsEvents.workspaceId, workspaceId), gte(analyticsEvents.createdAt, from), lte(analyticsEvents.createdAt, to)))
       .groupBy(analyticsEvents.sessionId)
 
     if (sessions.length === 0) return 0
@@ -76,20 +75,19 @@ export async function getBounceRate(range: DateRange): Promise<StatWithChange> {
   return { value, previousValue, change: calcChange(value, previousValue) }
 }
 
-export async function getAvgSessionDuration(range: DateRange): Promise<StatWithChange> {
+export async function getAvgSessionDuration(range: DateRange, workspaceId: string): Promise<StatWithChange> {
   const prev = getPreviousRange(range)
 
   async function calcAvgDuration(from: Date, to: Date): Promise<number> {
-    // Duration = time between first and last event in a session
     const sessions = await db
       .select({
         sessionId: analyticsEvents.sessionId,
         duration: sql<number>`extract(epoch from (max(${analyticsEvents.createdAt}) - min(${analyticsEvents.createdAt})))`,
       })
       .from(analyticsEvents)
-      .where(and(gte(analyticsEvents.createdAt, from), lte(analyticsEvents.createdAt, to)))
+      .where(and(eq(analyticsEvents.workspaceId, workspaceId), gte(analyticsEvents.createdAt, from), lte(analyticsEvents.createdAt, to)))
       .groupBy(analyticsEvents.sessionId)
-      .having(sql`count(*) > 1`) // exclude single-page sessions
+      .having(sql`count(*) > 1`)
 
     if (sessions.length === 0) return 0
     const totalDuration = sessions.reduce((acc, s) => acc + Number(s.duration ?? 0), 0)
@@ -101,14 +99,14 @@ export async function getAvgSessionDuration(range: DateRange): Promise<StatWithC
   return { value, previousValue, change: calcChange(value, previousValue) }
 }
 
-export async function getVisitorsOverTime(range: DateRange): Promise<TimeSeriesPoint[]> {
+export async function getVisitorsOverTime(range: DateRange, workspaceId: string): Promise<TimeSeriesPoint[]> {
   const rows = await db
     .select({
       date: sql<string>`to_char(${analyticsEvents.createdAt}, 'YYYY-MM-DD')`,
       value: countDistinct(analyticsEvents.visitorId),
     })
     .from(analyticsEvents)
-    .where(and(gte(analyticsEvents.createdAt, range.from), lte(analyticsEvents.createdAt, range.to)))
+    .where(and(eq(analyticsEvents.workspaceId, workspaceId), gte(analyticsEvents.createdAt, range.from), lte(analyticsEvents.createdAt, range.to)))
     .groupBy(sql`to_char(${analyticsEvents.createdAt}, 'YYYY-MM-DD')`)
     .orderBy(sql`to_char(${analyticsEvents.createdAt}, 'YYYY-MM-DD')`)
 
@@ -117,8 +115,7 @@ export async function getVisitorsOverTime(range: DateRange): Promise<TimeSeriesP
 
 export type HeatmapDay = { date: string; value: number }
 
-export async function getHeatmapData(): Promise<HeatmapDay[]> {
-  // Get daily page views for the last 364 days (52 weeks)
+export async function getHeatmapData(workspaceId: string): Promise<HeatmapDay[]> {
   const startDate = new Date(Date.now() - 364 * 24 * 60 * 60 * 1000)
 
   const rows = await db
@@ -127,7 +124,7 @@ export async function getHeatmapData(): Promise<HeatmapDay[]> {
       value: count(),
     })
     .from(analyticsEvents)
-    .where(gte(analyticsEvents.createdAt, startDate))
+    .where(and(eq(analyticsEvents.workspaceId, workspaceId), gte(analyticsEvents.createdAt, startDate)))
     .groupBy(sql`to_char(${analyticsEvents.createdAt}, 'YYYY-MM-DD')`)
     .orderBy(sql`to_char(${analyticsEvents.createdAt}, 'YYYY-MM-DD')`)
 
@@ -136,14 +133,14 @@ export async function getHeatmapData(): Promise<HeatmapDay[]> {
 
 export type TrafficSource = { source: string; visits: number; percentage: number }
 
-export async function getTrafficSources(range: DateRange): Promise<TrafficSource[]> {
+export async function getTrafficSources(range: DateRange, workspaceId: string): Promise<TrafficSource[]> {
   const rows = await db
     .select({
       source: sql<string>`coalesce(nullif(${analyticsEvents.referrer}, ''), 'Direct')`,
       visits: count(),
     })
     .from(analyticsEvents)
-    .where(and(gte(analyticsEvents.createdAt, range.from), lte(analyticsEvents.createdAt, range.to)))
+    .where(and(eq(analyticsEvents.workspaceId, workspaceId), gte(analyticsEvents.createdAt, range.from), lte(analyticsEvents.createdAt, range.to)))
     .groupBy(sql`coalesce(nullif(${analyticsEvents.referrer}, ''), 'Direct')`)
     .orderBy(sql`count(*) desc`)
     .limit(10)
@@ -159,7 +156,7 @@ export async function getTrafficSources(range: DateRange): Promise<TrafficSource
 
 export type TopPage = { pathname: string; views: number; visitors: number }
 
-export async function getTopPages(range: DateRange): Promise<TopPage[]> {
+export async function getTopPages(range: DateRange, workspaceId: string): Promise<TopPage[]> {
   const rows = await db
     .select({
       pathname: analyticsEvents.pathname,
@@ -167,7 +164,7 @@ export async function getTopPages(range: DateRange): Promise<TopPage[]> {
       visitors: countDistinct(analyticsEvents.visitorId),
     })
     .from(analyticsEvents)
-    .where(and(gte(analyticsEvents.createdAt, range.from), lte(analyticsEvents.createdAt, range.to)))
+    .where(and(eq(analyticsEvents.workspaceId, workspaceId), gte(analyticsEvents.createdAt, range.from), lte(analyticsEvents.createdAt, range.to)))
     .groupBy(analyticsEvents.pathname)
     .orderBy(sql`count(*) desc`)
     .limit(10)

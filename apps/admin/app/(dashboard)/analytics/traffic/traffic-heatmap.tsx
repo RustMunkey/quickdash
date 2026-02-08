@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useMemo } from "react"
 
 type HeatmapDay = { date: string; value: number }
 
@@ -26,21 +26,45 @@ function formatDate(dateStr: string): string {
   return `${day}, ${month} ${num}`
 }
 
-function generateWeeks(data: HeatmapDay[]): HeatmapDay[][] {
-  const weeks: HeatmapDay[][] = []
-  let week: HeatmapDay[] = []
-  for (let i = 0; i < data.length; i++) {
-    week.push(data[i])
-    if (week.length === 7) {
-      weeks.push(week)
-      week = []
-    }
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+function buildCalendarGrid(data: HeatmapDay[]): { weeks: HeatmapDay[][]; max: number } {
+  // Build lookup from sparse data
+  const lookup = new Map<string, number>()
+  let max = 0
+  for (const d of data) {
+    lookup.set(d.date, d.value)
+    if (d.value > max) max = d.value
   }
-  if (week.length > 0) {
-    while (week.length < 7) week.push({ date: "", value: 0 })
+
+  // Start from 364 days ago, rewind to the previous Sunday
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const start = new Date(today)
+  start.setDate(start.getDate() - 364)
+  // Rewind to Sunday
+  start.setDate(start.getDate() - start.getDay())
+
+  const weeks: HeatmapDay[][] = []
+  const cursor = new Date(start)
+
+  while (cursor <= today) {
+    const week: HeatmapDay[] = []
+    for (let d = 0; d < 7; d++) {
+      if (cursor > today) {
+        week.push({ date: "", value: 0 })
+      } else {
+        const ds = toDateStr(cursor)
+        week.push({ date: ds, value: lookup.get(ds) ?? 0 })
+      }
+      cursor.setDate(cursor.getDate() + 1)
+    }
     weeks.push(week)
   }
-  return weeks
+
+  return { weeks, max }
 }
 
 type TooltipState = {
@@ -52,6 +76,8 @@ type TooltipState = {
 export function TrafficHeatmap({ data }: { data: HeatmapDay[] }) {
   const [tooltip, setTooltip] = useState<TooltipState>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const { weeks, max } = useMemo(() => buildCalendarGrid(data), [data])
 
   if (data.length === 0) {
     return (
@@ -67,15 +93,12 @@ export function TrafficHeatmap({ data }: { data: HeatmapDay[] }) {
     )
   }
 
-  const max = Math.max(...data.map((d) => d.value))
-  const weeks = generateWeeks(data)
-
   const monthPositions: { label: string; col: number }[] = []
   let currentMonth = -1
   for (let w = 0; w < weeks.length; w++) {
     const firstDay = weeks[w].find((d) => d.date)
     if (firstDay?.date) {
-      const month = new Date(firstDay.date).getMonth()
+      const month = new Date(firstDay.date + "T00:00:00").getMonth()
       if (month !== currentMonth) {
         currentMonth = month
         monthPositions.push({ label: monthLabels[month], col: w })
@@ -132,7 +155,7 @@ export function TrafficHeatmap({ data }: { data: HeatmapDay[] }) {
           {/* Day labels */}
           <div className="flex flex-col gap-[3px] mr-2 shrink-0">
             {dayLabels.map((label, i) => (
-              <div key={i} className="flex-1 flex items-center">
+              <div key={i} className="h-[13px] flex items-center">
                 <span className="text-xs text-muted-foreground w-7 text-right">{label}</span>
               </div>
             ))}

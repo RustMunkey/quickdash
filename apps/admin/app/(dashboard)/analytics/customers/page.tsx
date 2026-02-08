@@ -9,6 +9,7 @@ import {
   DollarCircleIcon,
 } from "@hugeicons/core-free-icons"
 import { CustomerGrowthChart } from "./customers-charts"
+import { requireWorkspace } from "@/lib/workspace"
 import {
   getTotalCustomers,
   getNewCustomers,
@@ -34,6 +35,8 @@ function ChangeIndicator({ change }: { change: number }) {
 }
 
 export default async function CustomerInsightsPage() {
+  const workspace = await requireWorkspace()
+  const wid = workspace.id
   const range = {
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
     to: new Date(),
@@ -41,13 +44,13 @@ export default async function CustomerInsightsPage() {
 
   const [totalCustomers, newCustomers, repeatRate, avgLtv, customerGrowth, topCustomers, segments] =
     await Promise.all([
-      getTotalCustomers(),
-      getNewCustomers(range),
-      getRepeatRate(range),
-      getAvgLifetimeValue(),
-      getCustomerGrowth(range),
-      getTopCustomers(5),
-      getCustomerSegments(),
+      getTotalCustomers(wid),
+      getNewCustomers(range, wid),
+      getRepeatRate(range, wid),
+      getAvgLifetimeValue(wid),
+      getCustomerGrowth(range, wid),
+      getTopCustomers(5, wid),
+      getCustomerSegments(wid),
     ])
 
   const stats = [

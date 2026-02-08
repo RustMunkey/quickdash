@@ -5,6 +5,7 @@ import { RevenueChart } from "./dashboard-charts"
 import { DashboardStats } from "./dashboard-stats"
 import { RecentOrdersLive } from "./recent-orders-live"
 import { TopProductsLive } from "@/components/top-products-live"
+import { requireWorkspace } from "@/lib/workspace"
 import {
   getRevenueStats,
   getOrderCount,
@@ -16,6 +17,8 @@ import {
 } from "@/lib/analytics"
 
 export default async function DashboardPage() {
+  const workspace = await requireWorkspace()
+  const wid = workspace.id
   const range = {
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
     to: new Date(),
@@ -23,13 +26,13 @@ export default async function DashboardPage() {
 
   const [revenue, orderCount, mrr, pendingOrders, revenueOverTime, recentOrders, topProducts] =
     await Promise.all([
-      getRevenueStats(range),
-      getOrderCount(range),
-      getMRR(),
-      getPendingOrdersCount(),
-      getRevenueOverTime(range),
-      getRecentOrders(5),
-      getTopProducts(range),
+      getRevenueStats(range, wid),
+      getOrderCount(range, wid),
+      getMRR(wid),
+      getPendingOrdersCount(wid),
+      getRevenueOverTime(range, wid),
+      getRecentOrders(5, wid),
+      getTopProducts(range, wid),
     ])
 
   const initialStats = {

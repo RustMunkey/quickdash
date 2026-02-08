@@ -10,6 +10,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { TrafficHeatmap } from "./traffic-heatmap"
 import { VisitorsChart } from "./traffic-charts"
+import { requireWorkspace } from "@/lib/workspace"
 import {
   getPageViews,
   getUniqueVisitors,
@@ -38,6 +39,8 @@ function ChangeIndicator({ change }: { change: number }) {
 }
 
 export default async function TrafficPage() {
+  const workspace = await requireWorkspace()
+  const wid = workspace.id
   const range = {
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
     to: new Date(),
@@ -45,13 +48,13 @@ export default async function TrafficPage() {
 
   const [pageViews, visitors, bounceRate, avgSession, heatmapData, visitorsOverTime, trafficSources] =
     await Promise.all([
-      getPageViews(range),
-      getUniqueVisitors(range),
-      getBounceRate(range),
-      getAvgSessionDuration(range),
-      getHeatmapData(),
-      getVisitorsOverTime(range),
-      getTrafficSources(range),
+      getPageViews(range, wid),
+      getUniqueVisitors(range, wid),
+      getBounceRate(range, wid),
+      getAvgSessionDuration(range, wid),
+      getHeatmapData(wid),
+      getVisitorsOverTime(range, wid),
+      getTrafficSources(range, wid),
     ])
 
   const stats = [

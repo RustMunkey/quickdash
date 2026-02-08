@@ -14,7 +14,7 @@ export type SkuMargin = {
   marginPct: number
 }
 
-export async function getSkuMargins(range: DateRange, limit = 10): Promise<SkuMargin[]> {
+export async function getSkuMargins(range: DateRange, limit = 10, workspaceId: string): Promise<SkuMargin[]> {
   const rows = await db
     .select({
       sku: orderItems.sku,
@@ -28,7 +28,7 @@ export async function getSkuMargins(range: DateRange, limit = 10): Promise<SkuMa
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
     .innerJoin(productVariants, eq(orderItems.variantId, productVariants.id))
     .innerJoin(products, eq(productVariants.productId, products.id))
-    .where(and(gte(orders.createdAt, range.from), lte(orders.createdAt, range.to)))
+    .where(and(eq(orders.workspaceId, workspaceId), gte(orders.createdAt, range.from), lte(orders.createdAt, range.to)))
     .groupBy(orderItems.sku, orderItems.productName, orderItems.variantName, products.costPrice)
     .orderBy(sql`${sum(orderItems.totalPrice)} desc`)
     .limit(limit)
@@ -54,7 +54,7 @@ export async function getSkuMargins(range: DateRange, limit = 10): Promise<SkuMa
   })
 }
 
-export async function getTotalMargin(range: DateRange): Promise<{ revenue: number; cost: number; margin: number; marginPct: number }> {
+export async function getTotalMargin(range: DateRange, workspaceId: string): Promise<{ revenue: number; cost: number; margin: number; marginPct: number }> {
   const rows = await db
     .select({
       revenue: sum(orderItems.totalPrice),
@@ -65,7 +65,7 @@ export async function getTotalMargin(range: DateRange): Promise<{ revenue: numbe
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
     .innerJoin(productVariants, eq(orderItems.variantId, productVariants.id))
     .innerJoin(products, eq(productVariants.productId, products.id))
-    .where(and(gte(orders.createdAt, range.from), lte(orders.createdAt, range.to)))
+    .where(and(eq(orders.workspaceId, workspaceId), gte(orders.createdAt, range.from), lte(orders.createdAt, range.to)))
     .groupBy(products.costPrice)
 
   let totalRevenue = 0
@@ -85,7 +85,7 @@ export async function getTotalMargin(range: DateRange): Promise<{ revenue: numbe
   return { revenue: totalRevenue, cost: totalCost, margin, marginPct }
 }
 
-export async function getRefunds(range: DateRange): Promise<{ count: number; total: number }> {
+export async function getRefunds(range: DateRange, workspaceId: string): Promise<{ count: number; total: number }> {
   const [result] = await db
     .select({
       count: count(),
@@ -94,6 +94,7 @@ export async function getRefunds(range: DateRange): Promise<{ count: number; tot
     .from(orders)
     .where(
       and(
+        eq(orders.workspaceId, workspaceId),
         eq(orders.status, "refunded"),
         gte(orders.createdAt, range.from),
         lte(orders.createdAt, range.to)
@@ -106,8 +107,7 @@ export async function getRefunds(range: DateRange): Promise<{ count: number; tot
   }
 }
 
-export async function getCartAbandonment(range: DateRange): Promise<{ rate: number; abandonedCarts: number; completedCarts: number }> {
-  // Cart abandonment = sessions that had 'begin_checkout' but no 'purchase' event
+export async function getCartAbandonment(range: DateRange, workspaceId: string): Promise<{ rate: number; abandonedCarts: number; completedCarts: number }> {
   const { analyticsEvents } = await import("@quickdash/db/schema")
   const { countDistinct } = await import("@quickdash/db/drizzle")
 
@@ -116,6 +116,7 @@ export async function getCartAbandonment(range: DateRange): Promise<{ rate: numb
     .from(analyticsEvents)
     .where(
       and(
+        eq(analyticsEvents.workspaceId, workspaceId),
         eq(analyticsEvents.eventType, "begin_checkout"),
         gte(analyticsEvents.createdAt, range.from),
         lte(analyticsEvents.createdAt, range.to)
@@ -127,6 +128,7 @@ export async function getCartAbandonment(range: DateRange): Promise<{ rate: numb
     .from(analyticsEvents)
     .where(
       and(
+        eq(analyticsEvents.workspaceId, workspaceId),
         eq(analyticsEvents.eventType, "purchase"),
         gte(analyticsEvents.createdAt, range.from),
         lte(analyticsEvents.createdAt, range.to)

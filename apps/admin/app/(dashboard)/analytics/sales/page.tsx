@@ -4,6 +4,7 @@ export const revalidate = 60
 import { SalesCharts } from "./sales-charts"
 import { SalesStats } from "./sales-stats"
 import { TopProductsLive } from "@/components/top-products-live"
+import { requireWorkspace } from "@/lib/workspace"
 import {
   getGrossSales,
   getRevenueStats,
@@ -18,6 +19,8 @@ function formatCurrency(value: number): string {
 }
 
 export default async function SalesReportsPage() {
+  const workspace = await requireWorkspace()
+  const wid = workspace.id
   const range = {
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
     to: new Date(),
@@ -25,14 +28,14 @@ export default async function SalesReportsPage() {
 
   const [grossSales, netRevenue, discounts, salesByDay, topProducts, refunds, cartAbandonment, skuMargins] =
     await Promise.all([
-      getGrossSales(range),
-      getRevenueStats(range),
-      getDiscountsGiven(range),
-      getSalesByDay(range),
-      getTopProducts(range),
-      getRefunds(range),
-      getCartAbandonment(range),
-      getSkuMargins(range, 10),
+      getGrossSales(range, wid),
+      getRevenueStats(range, wid),
+      getDiscountsGiven(range, wid),
+      getSalesByDay(range, wid),
+      getTopProducts(range, wid),
+      getRefunds(range, wid),
+      getCartAbandonment(range, wid),
+      getSkuMargins(range, 10, wid),
     ])
 
   const salesData = salesByDay.map((p) => ({ date: p.date, sales: p.value }))

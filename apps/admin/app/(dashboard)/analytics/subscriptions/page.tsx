@@ -9,6 +9,7 @@ import {
   UserAdd01Icon,
 } from "@hugeicons/core-free-icons"
 import { SubscriptionGrowthChart } from "./subscriptions-charts"
+import { requireWorkspace } from "@/lib/workspace"
 import {
   getActiveSubscriptions,
   getMRR,
@@ -34,6 +35,8 @@ function ChangeIndicator({ change }: { change: number }) {
 }
 
 export default async function SubscriptionAnalyticsPage() {
+  const workspace = await requireWorkspace()
+  const wid = workspace.id
   const range = {
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
     to: new Date(),
@@ -41,13 +44,13 @@ export default async function SubscriptionAnalyticsPage() {
 
   const [activeSubs, mrr, churnRate, newSubs, subGrowth, revenueSplit, byFrequency] =
     await Promise.all([
-      getActiveSubscriptions(),
-      getMRR(),
-      getChurnRate(range),
-      getNewSubscriptions(range),
-      getSubscriptionGrowth(range),
-      getRevenueSplit(range),
-      getSubscriptionsByFrequency(),
+      getActiveSubscriptions(wid),
+      getMRR(wid),
+      getChurnRate(range, wid),
+      getNewSubscriptions(range, wid),
+      getSubscriptionGrowth(range, wid),
+      getRevenueSplit(range, wid),
+      getSubscriptionsByFrequency(wid),
     ])
 
   const stats = [

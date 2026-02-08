@@ -3,6 +3,7 @@ export const revalidate = 60
 
 import { AnalyticsCharts } from "./analytics-charts"
 import { AnalyticsStats } from "./analytics-stats"
+import { requireWorkspace } from "@/lib/workspace"
 import {
   getRevenueStats,
   getOrderCount,
@@ -14,6 +15,8 @@ import {
 } from "@/lib/analytics"
 
 export default async function AnalyticsOverviewPage() {
+  const workspace = await requireWorkspace()
+  const wid = workspace.id
   const range = {
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
     to: new Date(),
@@ -21,13 +24,13 @@ export default async function AnalyticsOverviewPage() {
 
   const [revenue, orders, avgOrder, newCustomers, revenueOverTime, ordersOverTime, categoryBreakdown] =
     await Promise.all([
-      getRevenueStats(range),
-      getOrderCount(range),
-      getAvgOrderValue(range),
-      getNewCustomers(range),
-      getRevenueOverTime(range),
-      getOrdersOverTime(range),
-      getRevenueByCategory(range),
+      getRevenueStats(range, wid),
+      getOrderCount(range, wid),
+      getAvgOrderValue(range, wid),
+      getNewCustomers(range, wid),
+      getRevenueOverTime(range, wid),
+      getOrdersOverTime(range, wid),
+      getRevenueByCategory(range, wid),
     ])
 
   const revenueData = revenueOverTime.map((p) => ({ date: p.date, revenue: p.value }))
