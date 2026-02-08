@@ -130,6 +130,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { ServersSidebar } from "@/components/servers-sidebar"
 import { WorkspaceSidebar } from "@/components/workspace-sidebar"
 import type { WorkspaceWithRole } from "@/lib/workspace"
+import type { WorkspaceFeatures } from "@quickdash/db/schema"
 import {
   Sidebar,
   SidebarContent,
@@ -381,6 +382,7 @@ const data = {
       items: [
         { title: "Webhook Events", url: "/developers/webhooks" },
         { title: "Notes & Bugs", url: "/developers/notes" },
+        { title: "Changelog", url: "/developers/changelog" },
         { title: "Test Page", url: "/developers/test" },
       ],
     },
@@ -931,10 +933,16 @@ function WorkflowSidebarContent() {
 function NormalSidebarContent({
   navSystem,
   navGrowth,
+  navOverview,
+  navOperations,
+  navDevelopers,
   sidebarState
 }: {
   navSystem: typeof data.navSystem
   navGrowth: typeof data.navGrowth
+  navOverview: typeof data.navOverview
+  navOperations: typeof data.navOperations
+  navDevelopers: typeof data.navDevelopers
   sidebarState: ReturnType<typeof useSidebarStateProvider>
 }) {
   return (
@@ -950,14 +958,14 @@ function NormalSidebarContent({
         </SidebarMenu>
       </SidebarGroup>
       <NavRecent />
-      <NavMain label="Overview" labelIcon={Home01Icon} items={data.navOverview} />
+      <NavMain label="Overview" labelIcon={Home01Icon} items={navOverview} />
       <NavMain label="Store" labelIcon={Building03Icon} items={data.navStore} />
-      <NavMain label="Operations" labelIcon={Layers01Icon} items={data.navOperations} />
+      <NavMain label="Operations" labelIcon={Layers01Icon} items={navOperations} />
       <NavMain label="Growth" labelIcon={RocketIcon} items={navGrowth} />
       <NavMain label="CRM" labelIcon={SaleTag01Icon} items={data.navCRM} />
       <NavMain label="Billing" labelIcon={Invoice02Icon} items={data.navBilling} />
       <NavMain label="System" labelIcon={Settings02Icon} items={navSystem} />
-      <NavMain label="Developers" labelIcon={SourceCodeIcon} items={data.navDevelopers} />
+      <NavMain label="Developers" labelIcon={SourceCodeIcon} items={navDevelopers} />
     </>
   )
 }
@@ -974,6 +982,7 @@ export function AppSidebar({
   workspaces = [],
   activeWorkspaceId = null,
   collections = [],
+  features,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: UserData
@@ -981,6 +990,7 @@ export function AppSidebar({
   workspaces?: WorkspaceWithRole[]
   activeWorkspaceId?: string | null
   collections?: CollectionNavItem[]
+  features?: WorkspaceFeatures
 }) {
   const { open: openCommandMenu } = useCommandMenu()
   const sidebarState = useSidebarStateProvider()
@@ -1015,19 +1025,54 @@ export function AppSidebar({
     })
   }, [collections])
 
-  // Filter out Integrations link for non-owners
+  // Filter out Integrations link for non-owners or locked features
   const navSystem = React.useMemo(() => {
-    if (workspace?.role === "owner") return data.navSystem
     return data.navSystem.map((item) => {
       if (item.title === "Settings" && item.items) {
         return {
           ...item,
-          items: item.items.filter((sub) => sub.title !== "Integrations"),
+          items: item.items.map((sub) => {
+            if (sub.title === "Integrations") {
+              if (workspace?.role !== "owner") return null
+              if (features && !features.integrations) return { ...sub, locked: true }
+            }
+            return sub
+          }).filter(Boolean) as typeof item.items,
         }
       }
       return item
     })
-  }, [workspace?.role])
+  }, [workspace?.role, features])
+
+  // Gate analytics nav items
+  const navOverview = React.useMemo(() => {
+    return data.navOverview.map((item) => {
+      if (item.title === "Analytics" && features && !features.analytics) {
+        return { ...item, locked: true }
+      }
+      return item
+    })
+  }, [features])
+
+  // Gate automation nav item
+  const navOperations = React.useMemo(() => {
+    return data.navOperations.map((item) => {
+      if (item.title === "Automation" && features && !features.automation) {
+        return { ...item, locked: true }
+      }
+      return item
+    })
+  }, [features])
+
+  // Gate API Keys nav item
+  const navDevelopers = React.useMemo(() => {
+    return data.navDevelopers.map((item) => {
+      if (item.title === "API Keys" && features && !features.api) {
+        return { ...item, locked: true }
+      }
+      return item
+    })
+  }, [features])
 
   // On mobile, we render the workspace/servers bar inside the sidebar sheet
   // so they slide out together as one unit
@@ -1066,7 +1111,7 @@ export function AppSidebar({
                 ) : isWorkflowMode ? (
                   <WorkflowSidebarContent />
                 ) : (
-                  <NormalSidebarContent navSystem={navSystem} navGrowth={navGrowth} sidebarState={sidebarState} />
+                  <NormalSidebarContent navSystem={navSystem} navGrowth={navGrowth} navOverview={navOverview} navOperations={navOperations} navDevelopers={navDevelopers} sidebarState={sidebarState} />
                 )}
               </SidebarContent>
               <SidebarFooter>
@@ -1094,7 +1139,7 @@ export function AppSidebar({
               ) : isWorkflowMode ? (
                 <WorkflowSidebarContent />
               ) : (
-                <NormalSidebarContent navSystem={navSystem} navGrowth={navGrowth} sidebarState={sidebarState} />
+                <NormalSidebarContent navSystem={navSystem} navGrowth={navGrowth} navOverview={navOverview} navOperations={navOperations} navDevelopers={navDevelopers} sidebarState={sidebarState} />
               )}
             </SidebarContent>
             <SidebarFooter>

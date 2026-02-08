@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from "@quickdash/db/client"
-import { users, workspaces, workspaceMembers, userWorkspacePreferences, workspaceInvites, storeSettings } from "@quickdash/db/schema"
+import { users, workspaces, workspaceMembers, userWorkspacePreferences, workspaceInvites, storeSettings, TIER_LIMITS, type SubscriptionTier } from "@quickdash/db/schema"
 import { eq, and } from "@quickdash/db/drizzle"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
@@ -100,7 +100,16 @@ export async function createWorkspace(formData: FormData) {
 		attempts++
 	}
 
-	// Create workspace
+	// Get user's tier for workspace limits
+	const [dbUser] = await db
+		.select({ subscriptionTier: users.subscriptionTier })
+		.from(users)
+		.where(eq(users.id, user.id))
+		.limit(1)
+	const userTier = (dbUser?.subscriptionTier || "free") as SubscriptionTier
+	const limits = TIER_LIMITS[userTier]
+
+	// Create workspace with limits from user's tier
 	const [workspace] = await db
 		.insert(workspaces)
 		.values({
@@ -108,7 +117,9 @@ export async function createWorkspace(formData: FormData) {
 			slug,
 			ownerId: user.id,
 			workspaceType,
-			subscriptionTier: "free",
+			maxStorefronts: limits.storefronts,
+			maxTeamMembers: limits.teamMembers,
+			features: limits.features,
 		})
 		.returning()
 
@@ -210,6 +221,15 @@ export async function skipWorkspaceCreation() {
 		.limit(1)
 
 	if (existingMembership.length === 0) {
+		// Get user's tier for workspace limits
+		const [dbUser] = await db
+			.select({ subscriptionTier: users.subscriptionTier })
+			.from(users)
+			.where(eq(users.id, user.id))
+			.limit(1)
+		const userTier = (dbUser?.subscriptionTier || "free") as SubscriptionTier
+		const skipLimits = TIER_LIMITS[userTier]
+
 		// Create a default workspace
 		const [workspace] = await db
 			.insert(workspaces)
@@ -218,7 +238,9 @@ export async function skipWorkspaceCreation() {
 				slug: `workspace-${nanoid(8)}`,
 				ownerId: user.id,
 				workspaceType: "other",
-				subscriptionTier: "free",
+				maxStorefronts: skipLimits.storefronts,
+				maxTeamMembers: skipLimits.teamMembers,
+				features: skipLimits.features,
 			})
 			.returning()
 

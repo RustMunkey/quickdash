@@ -1,6 +1,6 @@
 import { db } from "@quickdash/db/client"
 import { eq, and } from "@quickdash/db/drizzle"
-import { storefronts, workspaces } from "@quickdash/db/schema"
+import { storefronts, workspaces, users } from "@quickdash/db/schema"
 import { type NextRequest } from "next/server"
 
 export type StorefrontContext = {
@@ -38,14 +38,16 @@ export async function validateStorefrontRequest(
 		}
 	}
 
-	// Look up storefront by API key
+	// Look up storefront by API key, join workspace owner for subscription status
 	const [result] = await db
 		.select({
 			storefront: storefronts,
 			workspace: workspaces,
+			ownerSubscriptionStatus: users.subscriptionStatus,
 		})
 		.from(storefronts)
 		.innerJoin(workspaces, eq(storefronts.workspaceId, workspaces.id))
+		.innerJoin(users, eq(workspaces.ownerId, users.id))
 		.where(eq(storefronts.apiKey, apiKey))
 		.limit(1)
 
@@ -65,8 +67,8 @@ export async function validateStorefrontRequest(
 		}
 	}
 
-	// Check workspace subscription status
-	if (result.workspace.subscriptionStatus === "canceled") {
+	// Check workspace owner's subscription status
+	if (result.ownerSubscriptionStatus === "canceled") {
 		return {
 			success: false,
 			error: "Workspace subscription is inactive",

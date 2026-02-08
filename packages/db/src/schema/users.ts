@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, boolean, jsonb, date } from "drizzle-orm/pg-core";
+import type { SubscriptionTier } from "./workspaces";
 
 // User preferences type for cross-device sync
 export type UserPreferences = {
@@ -40,6 +41,12 @@ export const users = pgTable("users", {
 	preferences: jsonb("preferences").$type<UserPreferences>().default({}),
 	isBetaTester: boolean("is_beta_tester").default(false),
 	onboardingCompletedAt: timestamp("onboarding_completed_at"), // null = needs onboarding
+
+	// Subscription (per-user billing)
+	subscriptionTier: text("subscription_tier").$type<SubscriptionTier>().default("free").notNull(),
+	subscriptionStatus: text("subscription_status").default("active"), // active | past_due | canceled
+	polarSubscriptionId: text("polar_subscription_id"),
+
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

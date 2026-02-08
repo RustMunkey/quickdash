@@ -4,14 +4,17 @@ import { db } from "@quickdash/db/client"
 import {
 	workspaces,
 	workspaceMembers,
+	workspaceInvites,
 	userWorkspacePreferences,
 	storefronts,
+	users,
 	type WorkspaceMemberRole,
 	type SubscriptionTier,
 	type WorkspaceFeatures,
-	TIER_LIMITS
+	TIER_LIMITS,
+	TIER_INFO,
 } from "@quickdash/db/schema"
-import { eq, and } from "@quickdash/db/drizzle"
+import { eq, and, sql, isNull } from "@quickdash/db/drizzle"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { cache } from "react"
@@ -25,7 +28,8 @@ export type WorkspaceContext = {
 	slug: string
 	ownerId: string
 	userId: string // The current logged-in user's ID
-	subscriptionTier: SubscriptionTier
+	maxStorefronts: number
+	maxTeamMembers: number
 	features: WorkspaceFeatures
 	role: WorkspaceMemberRole
 	permissions: {
@@ -43,7 +47,6 @@ export type WorkspaceWithRole = {
 	name: string
 	slug: string
 	logo: string | null
-	subscriptionTier: SubscriptionTier
 	role: WorkspaceMemberRole
 	ownerId: string
 }
@@ -82,11 +85,12 @@ export async function getActiveWorkspace(): Promise<WorkspaceContext | null> {
 		return null
 	}
 
-	// Get workspace with user's membership
+	// Get workspace with user's membership + owner's subscription tier
 	const [result] = await db
 		.select({
 			workspace: workspaces,
 			member: workspaceMembers,
+			ownerTier: users.subscriptionTier,
 		})
 		.from(workspaces)
 		.innerJoin(
@@ -96,19 +100,24 @@ export async function getActiveWorkspace(): Promise<WorkspaceContext | null> {
 				eq(workspaceMembers.userId, user.id)
 			)
 		)
+		.innerJoin(users, eq(users.id, workspaces.ownerId))
 		.where(eq(workspaces.id, pref.activeWorkspaceId))
 		.limit(1)
 
 	if (!result) return null
+
+	const ownerTier = (result.ownerTier || "free") as SubscriptionTier
+	const tierLimits = TIER_LIMITS[ownerTier]
 
 	return {
 		id: result.workspace.id,
 		name: result.workspace.name,
 		slug: result.workspace.slug,
 		ownerId: result.workspace.ownerId,
-		userId: user.id, // The current logged-in user
-		subscriptionTier: result.workspace.subscriptionTier,
-		features: result.workspace.features ?? TIER_LIMITS[result.workspace.subscriptionTier].features,
+		userId: user.id,
+		maxStorefronts: result.workspace.maxStorefronts ?? tierLimits.storefronts,
+		maxTeamMembers: result.workspace.maxTeamMembers ?? tierLimits.teamMembers,
+		features: result.workspace.features ?? tierLimits.features,
 		role: result.member.role,
 		permissions: result.member.permissions ?? {},
 	}
@@ -139,7 +148,6 @@ export async function getUserWorkspaces(): Promise<WorkspaceWithRole[]> {
 			name: workspaces.name,
 			slug: workspaces.slug,
 			logo: workspaces.logo,
-			subscriptionTier: workspaces.subscriptionTier,
 			ownerId: workspaces.ownerId,
 			role: workspaceMembers.role,
 		})
@@ -262,6 +270,7 @@ export async function getWorkspaceById(workspaceId: string): Promise<WorkspaceCo
 		.select({
 			workspace: workspaces,
 			member: workspaceMembers,
+			ownerTier: users.subscriptionTier,
 		})
 		.from(workspaces)
 		.innerJoin(
@@ -271,19 +280,24 @@ export async function getWorkspaceById(workspaceId: string): Promise<WorkspaceCo
 				eq(workspaceMembers.userId, user.id)
 			)
 		)
+		.innerJoin(users, eq(users.id, workspaces.ownerId))
 		.where(eq(workspaces.id, workspaceId))
 		.limit(1)
 
 	if (!result) return null
+
+	const ownerTier = (result.ownerTier || "free") as SubscriptionTier
+	const tierLimits = TIER_LIMITS[ownerTier]
 
 	return {
 		id: result.workspace.id,
 		name: result.workspace.name,
 		slug: result.workspace.slug,
 		ownerId: result.workspace.ownerId,
-		userId: user.id, // The current logged-in user
-		subscriptionTier: result.workspace.subscriptionTier,
-		features: result.workspace.features ?? TIER_LIMITS[result.workspace.subscriptionTier].features,
+		userId: user.id,
+		maxStorefronts: result.workspace.maxStorefronts ?? tierLimits.storefronts,
+		maxTeamMembers: result.workspace.maxTeamMembers ?? tierLimits.teamMembers,
+		features: result.workspace.features ?? tierLimits.features,
 		role: result.member.role,
 		permissions: result.member.permissions ?? {},
 	}
@@ -304,14 +318,17 @@ export async function createWorkspaceAction(
 		return { error: "Workspace name must be at least 2 characters" }
 	}
 
-	// Check workspace limits based on user's current tier
-	const userWorkspaces = await getUserWorkspaces()
-	const ownedWorkspaces = userWorkspaces.filter(w => w.role === "owner")
+	// Get user's subscription tier to enforce limits
+	const subscription = await getUserSubscription()
+	const limits = TIER_LIMITS[subscription.tier]
 
-	// For now, allow up to 5 workspaces (can be gated by subscription later)
-	const maxWorkspaces = 5
-	if (ownedWorkspaces.length >= maxWorkspaces) {
-		return { error: `You can only create up to ${maxWorkspaces} workspaces` }
+	// Check workspace limits
+	const userWsList = await getUserWorkspaces()
+	const ownedWorkspaces = userWsList.filter(w => w.ownerId === user.id)
+
+	if (limits.workspaces !== -1 && ownedWorkspaces.length >= limits.workspaces) {
+		const tierName = TIER_INFO[subscription.tier].name
+		return { error: `Your ${tierName} plan allows up to ${limits.workspaces} workspace${limits.workspaces === 1 ? "" : "s"}. Upgrade to create more.` }
 	}
 
 	// Generate unique slug
@@ -331,7 +348,7 @@ export async function createWorkspaceAction(
 		attempts++
 	}
 
-	// Create workspace
+	// Create workspace with limits from user's tier
 	const [workspace] = await db
 		.insert(workspaces)
 		.values({
@@ -339,7 +356,9 @@ export async function createWorkspaceAction(
 			slug,
 			ownerId: user.id,
 			workspaceType,
-			subscriptionTier: "beta", // Give beta tier for now
+			maxStorefronts: limits.storefronts,
+			maxTeamMembers: limits.teamMembers,
+			features: limits.features,
 		})
 		.returning()
 
@@ -461,4 +480,109 @@ export async function leaveWorkspaceAction(
 
 	revalidatePath("/")
 	return { success: true }
+}
+
+/**
+ * Get the current user's subscription info
+ */
+export async function getUserSubscription(): Promise<{
+	tier: SubscriptionTier
+	status: string
+	polarSubscriptionId: string | null
+	limits: (typeof TIER_LIMITS)[SubscriptionTier]
+	features: WorkspaceFeatures
+}> {
+	const user = await getUser()
+	if (!user) throw new Error("Not authenticated")
+
+	const [dbUser] = await db
+		.select({
+			subscriptionTier: users.subscriptionTier,
+			subscriptionStatus: users.subscriptionStatus,
+			polarSubscriptionId: users.polarSubscriptionId,
+		})
+		.from(users)
+		.where(eq(users.id, user.id))
+		.limit(1)
+
+	const tier = (dbUser?.subscriptionTier || "free") as SubscriptionTier
+	const limits = TIER_LIMITS[tier]
+
+	return {
+		tier,
+		status: dbUser?.subscriptionStatus || "active",
+		polarSubscriptionId: dbUser?.polarSubscriptionId || null,
+		limits,
+		features: limits.features,
+	}
+}
+
+/**
+ * Check if adding a storefront would exceed the workspace limit
+ */
+export async function checkStorefrontLimit(workspaceId: string): Promise<{
+	allowed: boolean
+	used: number
+	limit: number
+}> {
+	const [result] = await db
+		.select({ count: sql<number>`count(*)::int` })
+		.from(storefronts)
+		.where(eq(storefronts.workspaceId, workspaceId))
+
+	const [ws] = await db
+		.select({ maxStorefronts: workspaces.maxStorefronts })
+		.from(workspaces)
+		.where(eq(workspaces.id, workspaceId))
+		.limit(1)
+
+	const used = result?.count ?? 0
+	const limit = ws?.maxStorefronts ?? 1
+
+	return {
+		allowed: limit === -1 || used < limit,
+		used,
+		limit,
+	}
+}
+
+/**
+ * Check if adding a team member would exceed the workspace limit
+ */
+export async function checkTeamMemberLimit(workspaceId: string): Promise<{
+	allowed: boolean
+	used: number
+	limit: number
+}> {
+	// Count existing members
+	const [memberResult] = await db
+		.select({ count: sql<number>`count(*)::int` })
+		.from(workspaceMembers)
+		.where(eq(workspaceMembers.workspaceId, workspaceId))
+
+	// Count pending invites
+	const [inviteResult] = await db
+		.select({ count: sql<number>`count(*)::int` })
+		.from(workspaceInvites)
+		.where(
+			and(
+				eq(workspaceInvites.workspaceId, workspaceId),
+				isNull(workspaceInvites.acceptedAt)
+			)
+		)
+
+	const [ws] = await db
+		.select({ maxTeamMembers: workspaces.maxTeamMembers })
+		.from(workspaces)
+		.where(eq(workspaces.id, workspaceId))
+		.limit(1)
+
+	const used = (memberResult?.count ?? 0) + (inviteResult?.count ?? 0)
+	const limit = ws?.maxTeamMembers ?? 3
+
+	return {
+		allowed: limit === -1 || used < limit,
+		used,
+		limit,
+	}
 }

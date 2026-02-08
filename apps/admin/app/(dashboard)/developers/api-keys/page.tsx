@@ -1,8 +1,15 @@
 import { getStorefronts } from "@/app/(dashboard)/settings/storefronts/actions"
 import { getAdminApiKeys } from "./actions"
 import { ApiKeysClient } from "./api-keys-client"
+import { requireWorkspace } from "@/lib/workspace"
+import { FeatureGatePage } from "@/components/feature-gate"
 
 export default async function ApiKeysPage() {
+	const workspace = await requireWorkspace()
+	if (!workspace.features.api) {
+		return <FeatureGatePage feature="api" features={workspace.features} featureName="API Access" />
+	}
+
 	const [storefronts, adminApiKeys] = await Promise.all([
 		getStorefronts(),
 		getAdminApiKeys(),

@@ -63,6 +63,17 @@ interface CreateStorefrontData {
 export async function createStorefront(data: CreateStorefrontData) {
 	const workspace = await requireStorefrontPermission()
 
+	// Check storefront limit
+	const { checkStorefrontLimit } = await import("@/lib/workspace")
+	const limitCheck = await checkStorefrontLimit(workspace.id)
+	if (!limitCheck.allowed) {
+		throw new Error(
+			limitCheck.limit === -1
+				? "Unable to create storefront"
+				: `You've reached your limit of ${limitCheck.limit} storefront${limitCheck.limit === 1 ? "" : "s"}. Upgrade your plan to create more.`
+		)
+	}
+
 	// Generate API credentials
 	const apiKey = `sf_${nanoid(32)}`
 	const apiSecret = `sfs_${nanoid(48)}`

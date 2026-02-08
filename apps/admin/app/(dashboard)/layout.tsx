@@ -178,6 +178,7 @@ export default async function DashboardLayout({
                       workspaces={workspaces}
                       activeWorkspaceId={activeWorkspace?.id ?? null}
                       collections={collections}
+                      features={activeWorkspace?.features}
                     />
                     <SidebarSwipe />
                     <SidebarInset className="md:flex md:flex-col">

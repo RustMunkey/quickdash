@@ -7,7 +7,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "crypto"
 import { db } from "@quickdash/db/client"
 import { eq, and } from "@quickdash/db/drizzle"
-import { adminApiKeys, workspaces, type ApiKeyPermissions } from "@quickdash/db/schema"
+import { adminApiKeys, workspaces, type ApiKeyPermissions, type WorkspaceFeatures } from "@quickdash/db/schema"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 
@@ -93,6 +93,8 @@ export async function verifyApiKey(apiKey: string): Promise<{
 			allowedIps: adminApiKeys.allowedIps,
 			workspaceName: workspaces.name,
 			workspaceSlug: workspaces.slug,
+			workspaceOwnerId: workspaces.ownerId,
+			workspaceFeatures: workspaces.features,
 		})
 		.from(adminApiKeys)
 		.innerJoin(workspaces, eq(adminApiKeys.workspaceId, workspaces.id))
@@ -113,6 +115,12 @@ export async function verifyApiKey(apiKey: string): Promise<{
 		return { valid: false, error: "API key has expired" }
 	}
 
+	// Check if workspace has API access feature enabled
+	const wsFeatures = keyRecord.workspaceFeatures as WorkspaceFeatures | null
+	if (wsFeatures && !wsFeatures.api) {
+		return { valid: false, error: "API access is not available on your current plan. Upgrade to unlock API access." }
+	}
+
 	// Update last used timestamp (fire and forget)
 	db.update(adminApiKeys)
 		.set({
@@ -121,6 +129,16 @@ export async function verifyApiKey(apiKey: string): Promise<{
 		})
 		.where(eq(adminApiKeys.id, keyRecord.id))
 		.catch(() => {}) // Ignore errors
+
+	// Record API call usage (fire and forget)
+	import("@/lib/metering").then(({ recordUsage }) => {
+		recordUsage({
+			userId: keyRecord.workspaceOwnerId,
+			workspaceId: keyRecord.workspaceId,
+			metric: "api_calls",
+			metadata: { keyId: keyRecord.id },
+		}).catch(() => {})
+	}).catch(() => {})
 
 	return {
 		valid: true,

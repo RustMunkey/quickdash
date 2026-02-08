@@ -1,8 +1,9 @@
 import { inngest } from "@/lib/inngest"
 import { db } from "@quickdash/db/client"
 import { eq, and } from "@quickdash/db/drizzle"
-import { workflows, workflowRuns, type Workflow } from "@quickdash/db/schema"
+import { workflows, workflowRuns, workspaces, type Workflow } from "@quickdash/db/schema"
 import { executeWorkflow } from "@/lib/workflows/executor"
+import { recordUsage } from "@/lib/metering"
 import type { WorkflowTrigger } from "@quickdash/db/schema"
 import type { WorkflowEventData, ManualTriggerEventData } from "@/lib/workflows/types"
 
@@ -91,6 +92,32 @@ export const workflowTriggerHandler = inngest.createFunction(
 			})
 		)
 
+		// Record usage metering for each executed workflow
+		await step.run("record-usage", async () => {
+			// Get workspace owner for usage attribution
+			const [ws] = await db
+				.select({ ownerId: workspaces.ownerId })
+				.from(workspaces)
+				.where(eq(workspaces.id, workspaceId))
+				.limit(1)
+
+			if (ws) {
+				for (const result of results) {
+					await recordUsage({
+						userId: ws.ownerId,
+						workspaceId,
+						metric: "workflow_runs",
+						metadata: {
+							workflowId: result.workflowId,
+							workflowName: result.workflowName,
+							success: result.success,
+							stepsCompleted: result.stepsCompleted,
+						},
+					})
+				}
+			}
+		})
+
 		console.log("[Inngest] All workflows executed:", results)
 		return {
 			executed: results.length,
@@ -160,6 +187,30 @@ export const workflowManualTriggerHandler = inngest.createFunction(
 					await step.sleep(id, ms)
 				},
 			})
+		})
+
+		// Record usage metering
+		await step.run("record-usage", async () => {
+			const [ws] = await db
+				.select({ ownerId: workspaces.ownerId })
+				.from(workspaces)
+				.where(eq(workspaces.id, workflow.workspaceId))
+				.limit(1)
+
+			if (ws) {
+				await recordUsage({
+					userId: ws.ownerId,
+					workspaceId: workflow.workspaceId,
+					metric: "workflow_runs",
+					metadata: {
+						workflowId,
+						workflowName: workflow.name,
+						manual: true,
+						triggeredBy,
+						success: result.success,
+					},
+				})
+			}
 		})
 
 		return {

@@ -12,7 +12,7 @@ import {
 import { users } from "./users";
 
 // Subscription tier type
-export type SubscriptionTier = "free" | "starter" | "growth" | "pro" | "beta";
+export type SubscriptionTier = "free" | "lite" | "pro" | "max" | "scale" | "beta";
 
 // Workspace features based on tier
 export type WorkspaceFeatures = {
@@ -24,29 +24,50 @@ export type WorkspaceFeatures = {
 	integrations: boolean;
 };
 
-// Tier limits
-export const TIER_LIMITS: Record<SubscriptionTier, { storefronts: number; teamMembers: number; features: WorkspaceFeatures }> = {
+// Tier display info
+export const TIER_INFO: Record<SubscriptionTier, { name: string; price: number; description: string }> = {
+	free: { name: "Free", price: 0, description: "Get started with the basics" },
+	lite: { name: "Lite", price: 5, description: "For small businesses getting started" },
+	pro: { name: "Pro", price: 20, description: "For growing businesses" },
+	max: { name: "Max", price: 100, description: "Everything unlimited" },
+	scale: { name: "Scale", price: -1, description: "Custom pricing for large teams" },
+	beta: { name: "Beta", price: 0, description: "Early access — all features unlocked" },
+};
+
+// Tier limits (storefronts + teamMembers are per-workspace, workspaces is per-user)
+export const TIER_LIMITS: Record<SubscriptionTier, { workspaces: number; storefronts: number; teamMembers: number; features: WorkspaceFeatures }> = {
 	free: {
+		workspaces: 1,
 		storefronts: 1,
 		teamMembers: 3,
 		features: { api: false, automation: false, whiteLabel: false, customDomain: false, analytics: false, integrations: false },
 	},
-	starter: {
-		storefronts: 2,
-		teamMembers: 10,
+	lite: {
+		workspaces: 3,
+		storefronts: 3,
+		teamMembers: 15,
 		features: { api: false, automation: false, whiteLabel: false, customDomain: false, analytics: true, integrations: true },
 	},
-	growth: {
-		storefronts: 5,
-		teamMembers: 50,
+	pro: {
+		workspaces: 10,
+		storefronts: 10,
+		teamMembers: 100,
 		features: { api: true, automation: true, whiteLabel: false, customDomain: false, analytics: true, integrations: true },
 	},
-	pro: {
+	max: {
+		workspaces: -1, // unlimited
+		storefronts: -1, // unlimited
+		teamMembers: -1, // unlimited
+		features: { api: true, automation: true, whiteLabel: true, customDomain: true, analytics: true, integrations: true },
+	},
+	scale: {
+		workspaces: -1, // unlimited
 		storefronts: -1, // unlimited
 		teamMembers: -1, // unlimited
 		features: { api: true, automation: true, whiteLabel: true, customDomain: true, analytics: true, integrations: true },
 	},
 	beta: {
+		workspaces: -1, // unlimited
 		storefronts: -1, // unlimited
 		teamMembers: -1, // unlimited
 		features: { api: true, automation: true, whiteLabel: true, customDomain: true, analytics: true, integrations: true },
@@ -61,11 +82,6 @@ export const workspaces = pgTable("workspaces", {
 	ownerId: text("owner_id")
 		.notNull()
 		.references(() => users.id, { onDelete: "cascade" }),
-
-	// Subscription
-	subscriptionTier: text("subscription_tier").$type<SubscriptionTier>().default("free").notNull(),
-	subscriptionStatus: text("subscription_status").default("active"), // active | past_due | canceled
-	polarSubscriptionId: text("polar_subscription_id"), // Reference to Polar subscription
 
 	// Visibility
 	visibility: text("visibility").default("private"), // private | public

@@ -47,3 +47,4 @@ export * from "./faq";
 export * from "./stats";
 export * from "./testimonials";
 export * from "./content-collections";
+export * from "./promotions";

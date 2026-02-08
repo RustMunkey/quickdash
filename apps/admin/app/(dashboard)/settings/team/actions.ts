@@ -60,6 +60,17 @@ export async function getPendingInvites() {
 export async function createInvite(email: string, role: string) {
 	const workspace = await requireTeamPermission()
 
+	// Check team member limit
+	const { checkTeamMemberLimit } = await import("@/lib/workspace")
+	const limitCheck = await checkTeamMemberLimit(workspace.id)
+	if (!limitCheck.allowed) {
+		throw new Error(
+			limitCheck.limit === -1
+				? "Unable to invite team member"
+				: `You've reached your limit of ${limitCheck.limit} team members. Upgrade your plan to invite more.`
+		)
+	}
+
 	// Check if user already exists in this workspace
 	const [existingUser] = await db
 		.select()
