@@ -6,6 +6,7 @@ import {
 	boolean,
 	jsonb,
 	integer,
+	bigint,
 	unique,
 	index,
 } from "drizzle-orm/pg-core";
@@ -143,6 +144,14 @@ export const TIER_INFO: Record<SubscriptionTier, { name: string; price: number; 
 	beta: { name: "Beta", price: 0, description: "Early access — all features unlocked" },
 };
 
+// Per-file size limits by category (in bytes)
+export const FILE_SIZE_LIMITS: Record<string, number> = {
+	image: 10 * 1024 * 1024,      // 10 MB
+	video: 100 * 1024 * 1024,     // 100 MB
+	audio: 50 * 1024 * 1024,      // 50 MB
+	document: 50 * 1024 * 1024,   // 50 MB (PDF, Office, archives, etc.)
+};
+
 // Tier limits (storefronts + teamMembers are per-workspace, workspaces is per-user)
 export const TIER_LIMITS: Record<SubscriptionTier, {
 	workspaces: number;
@@ -151,36 +160,43 @@ export const TIER_LIMITS: Record<SubscriptionTier, {
 	maxWidgets: number;
 	maxSongs: number;
 	maxStations: number;
+	storageBytes: number;
 	features: WorkspaceFeatures;
 }> = {
 	hobby: {
 		workspaces: 1, storefronts: 1, teamMembers: 0,
 		maxWidgets: 2, maxSongs: 5, maxStations: 1,
+		storageBytes: 500 * 1024 * 1024, // 500 MB
 		features: HOBBY_FEATURES,
 	},
 	lite: {
 		workspaces: 1, storefronts: 1, teamMembers: 5,
 		maxWidgets: 5, maxSongs: 15, maxStations: 3,
+		storageBytes: 2 * 1024 * 1024 * 1024, // 2 GB
 		features: LITE_FEATURES,
 	},
 	essentials: {
 		workspaces: 1, storefronts: 2, teamMembers: 10,
 		maxWidgets: 10, maxSongs: 50, maxStations: 5,
+		storageBytes: 10 * 1024 * 1024 * 1024, // 10 GB
 		features: ESSENTIALS_FEATURES,
 	},
 	pro: {
 		workspaces: 4, storefronts: 5, teamMembers: 50,
 		maxWidgets: -1, maxSongs: -1, maxStations: -1,
+		storageBytes: 50 * 1024 * 1024 * 1024, // 50 GB
 		features: ALL_FEATURES,
 	},
 	teams: {
 		workspaces: -1, storefronts: -1, teamMembers: -1,
 		maxWidgets: -1, maxSongs: -1, maxStations: -1,
+		storageBytes: -1, // unlimited
 		features: ALL_FEATURES,
 	},
 	beta: {
 		workspaces: -1, storefronts: -1, teamMembers: -1,
 		maxWidgets: -1, maxSongs: -1, maxStations: -1,
+		storageBytes: -1, // unlimited — platform owners only
 		features: ALL_FEATURES,
 	},
 };
@@ -212,9 +228,13 @@ export const workspaces = pgTable("workspaces", {
 	maxWidgets: integer("max_widgets").default(2),
 	maxSongs: integer("max_songs").default(5),
 	maxStations: integer("max_stations").default(1),
+	maxStorageBytes: bigint("max_storage_bytes", { mode: "number" }).default(500 * 1024 * 1024), // default 500 MB
 
 	// Features (cached from tier, can be overridden for special cases)
 	features: jsonb("features").$type<WorkspaceFeatures>().default(HOBBY_FEATURES),
+
+	// Storage tracking
+	storageUsedBytes: bigint("storage_used_bytes", { mode: "number" }).default(0).notNull(),
 
 	// Timestamps
 	createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -45,6 +45,16 @@ export async function getBillingInfo() {
 	// Get metered usage
 	const meteredUsage = await getUserUsageSummary(workspace.userId)
 
+	// Get workspace storage usage
+	const [wsStorage] = await db
+		.select({
+			storageUsedBytes: workspaces.storageUsedBytes,
+			maxStorageBytes: workspaces.maxStorageBytes,
+		})
+		.from(workspaces)
+		.where(eq(workspaces.id, workspace.id))
+		.limit(1)
+
 	return {
 		tier,
 		tierName: info.name,
@@ -63,6 +73,10 @@ export async function getBillingInfo() {
 				used: (memberCount?.count as number) || 0,
 				limit: workspace.maxTeamMembers,
 			},
+		},
+		storage: {
+			usedBytes: wsStorage?.storageUsedBytes ?? 0,
+			limitBytes: wsStorage?.maxStorageBytes ?? 0,
 		},
 		metered: meteredUsage,
 		features: workspace.features,

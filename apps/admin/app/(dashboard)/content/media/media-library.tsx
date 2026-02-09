@@ -127,7 +127,7 @@ export function MediaLibrary({ items: initialItems }: { items: MediaItemType[] }
 						ref={fileInputRef}
 						type="file"
 						multiple
-						accept="image/*,video/*"
+						accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.csv,.txt,.json,.svg,.woff,.woff2,.ttf,.otf"
 						className="hidden"
 						onChange={(e) => e.target.files && handleUpload(e.target.files)}
 					/>

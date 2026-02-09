@@ -371,6 +371,7 @@ export async function createWorkspaceAction(
 			workspaceType,
 			maxStorefronts: limits.storefronts,
 			maxTeamMembers: limits.teamMembers,
+			maxStorageBytes: limits.storageBytes,
 			features: limits.features,
 		})
 		.returning()

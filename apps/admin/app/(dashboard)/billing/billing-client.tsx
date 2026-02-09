@@ -30,6 +30,10 @@ type BillingInfo = {
 		storefronts: { used: number; limit: number }
 		teamMembers: { used: number; limit: number }
 	}
+	storage: {
+		usedBytes: number
+		limitBytes: number
+	}
 	metered: MeteredUsage
 	features: WorkspaceFeatures
 }
@@ -284,6 +288,12 @@ export function BillingClient({
 							limit={billing.usage.teamMembers.limit}
 						/>
 					</div>
+					<div className="mt-6">
+						<StorageUsage
+							usedBytes={billing.storage.usedBytes}
+							limitBytes={billing.storage.limitBytes}
+						/>
+					</div>
 				</CardContent>
 			</Card>
 
@@ -333,6 +343,31 @@ function MeteredItem({ label, count }: { label: string; count: number }) {
 			<div className="mt-1 text-2xl font-bold tracking-tight">
 				{count.toLocaleString()}
 			</div>
+		</div>
+	)
+}
+
+function formatBytes(bytes: number): string {
+	if (bytes === 0) return "0 B"
+	if (bytes < 1024) return `${bytes} B`
+	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+	if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+	return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
+
+function StorageUsage({ usedBytes, limitBytes }: { usedBytes: number; limitBytes: number }) {
+	const isUnlimited = limitBytes === -1
+	const pct = isUnlimited ? 0 : limitBytes > 0 ? Math.min((usedBytes / limitBytes) * 100, 100) : 0
+
+	return (
+		<div className="space-y-2">
+			<div className="flex items-center justify-between text-sm">
+				<span className="font-medium">Storage</span>
+				<span className="text-muted-foreground">
+					{formatBytes(usedBytes)} / {isUnlimited ? "Unlimited" : formatBytes(limitBytes)}
+				</span>
+			</div>
+			<Progress value={isUnlimited ? 0 : pct} className="h-2" />
 		</div>
 	)
 }

@@ -87,6 +87,7 @@
 		"recharts": "2.15.4",
 		"resend": "^6.8.0",
 		"shadcn": "^3.7.0",
+		"sharp": "^0.34.5",
 		"slugify": "^1.6.6",
 		"sonner": "^2.0.7",
 		"stripe": "^20.3.0",

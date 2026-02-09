@@ -49,6 +49,7 @@ async function applyTier(userId: string, tier: SubscriptionTier, polarSubscripti
 			maxWidgets: limits.maxWidgets,
 			maxSongs: limits.maxSongs,
 			maxStations: limits.maxStations,
+			maxStorageBytes: limits.storageBytes,
 			features: limits.features,
 			updatedAt: new Date(),
 		})
@@ -285,6 +286,7 @@ export const processPolarSubscriptionRevoked = inngest.createFunction(
 					maxWidgets: hobbyLimits.maxWidgets,
 					maxSongs: hobbyLimits.maxSongs,
 					maxStations: hobbyLimits.maxStations,
+					maxStorageBytes: hobbyLimits.storageBytes,
 					features: hobbyLimits.features,
 					updatedAt: new Date(),
 				})
@@ -354,6 +356,7 @@ export const processPolarSubscriptionUpdated = inngest.createFunction(
 					maxWidgets: limits.maxWidgets,
 					maxSongs: limits.maxSongs,
 					maxStations: limits.maxStations,
+					maxStorageBytes: limits.storageBytes,
 					features: limits.features,
 					updatedAt: new Date(),
 				})
@@ -471,6 +474,7 @@ export const promoExpirationCheck = inngest.createFunction(
 						maxWidgets: hobbyLimits.maxWidgets,
 						maxSongs: hobbyLimits.maxSongs,
 						maxStations: hobbyLimits.maxStations,
+						maxStorageBytes: hobbyLimits.storageBytes,
 						features: hobbyLimits.features,
 						updatedAt: new Date(),
 					})

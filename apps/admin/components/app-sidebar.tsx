@@ -118,6 +118,7 @@ import Link from "next/link"
 import { NavMain } from "@/components/nav-main"
 import { NavRecent } from "@/components/nav-recent"
 import { NavUser } from "@/components/nav-user"
+import { StorageIndicator } from "@/components/storage-indicator"
 import { useCommandMenu } from "@/components/command-menu"
 import { useSidebarStateProvider, SidebarStateContext } from "@/lib/use-sidebar-state"
 import { useSidebarMode } from "@/lib/sidebar-mode"
@@ -383,7 +384,6 @@ const data = {
         { title: "Webhook Events", url: "/developers/webhooks" },
         { title: "Notes & Bugs", url: "/developers/notes" },
         { title: "Changelog", url: "/developers/changelog" },
-        { title: "Test Page", url: "/developers/test" },
       ],
     },
   ],
@@ -1023,6 +1023,7 @@ export function AppSidebar({
       lockSub({ title: "All Collections", url: "/content/collections" }, "collections"),
       lockSub({ title: "Site Content", url: "/content/site-content" }, "siteContent"),
       lockSub({ title: "Media Library", url: "/content/media" }, "mediaLibrary"),
+      lockSub({ title: "Media Converter", url: "/content/media/converter" }, "mediaLibrary"),
     ]
 
     return data.navGrowth.map((item) => {
@@ -1199,6 +1200,7 @@ export function AppSidebar({
                 )}
               </SidebarContent>
               <SidebarFooter>
+                <StorageIndicator />
                 <NavUser user={user} />
               </SidebarFooter>
             </div>

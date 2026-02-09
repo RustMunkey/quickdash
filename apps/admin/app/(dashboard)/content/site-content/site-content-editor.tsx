@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { MediaUploader, type MediaItem } from "@/components/media-uploader"
 import { updateSiteContent } from "../actions"
 
 type ContentItem = {
@@ -19,6 +20,51 @@ type ContentItem = {
 	workspaceId: string | null
 	updatedBy: string | null
 	updatedAt: Date
+}
+
+function isImageKey(key: string): boolean {
+	const lower = key.toLowerCase()
+	return (
+		lower.endsWith(":image") ||
+		lower.endsWith(":images") ||
+		lower.endsWith(":logo") ||
+		lower.endsWith(":banner") ||
+		lower.endsWith(":icon") ||
+		lower.endsWith(":thumbnail") ||
+		lower.endsWith(":cover") ||
+		lower.endsWith(":avatar") ||
+		lower.endsWith(":photo") ||
+		lower.endsWith(":background")
+	)
+}
+
+function isMultiImageKey(key: string): boolean {
+	return key.toLowerCase().endsWith(":images")
+}
+
+function isImageValue(value: string | null): boolean {
+	if (!value) return false
+	return value.startsWith("data:image") || /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg|avif)/i.test(value)
+}
+
+function parseImageValue(value: string | null, isMulti: boolean): MediaItem[] {
+	if (!value) return []
+	if (isMulti) {
+		try {
+			const parsed = JSON.parse(value)
+			if (Array.isArray(parsed)) {
+				return parsed.map((url: string, i: number) => ({
+					id: `existing-${i}`,
+					url,
+					type: "image" as const,
+				}))
+			}
+		} catch {}
+	}
+	if (value && (value.startsWith("http") || value.startsWith("data:"))) {
+		return [{ id: "existing-0", url: value, type: "image" as const }]
+	}
+	return []
 }
 
 export function SiteContentEditor({ items }: { items: ContentItem[] }) {
@@ -70,6 +116,15 @@ export function SiteContentEditor({ items }: { items: ContentItem[] }) {
 		}
 	}
 
+	const handleImageChange = (key: string, mediaItems: MediaItem[], isMulti: boolean) => {
+		if (isMulti) {
+			const urls = mediaItems.map(m => m.url)
+			setValues(v => ({ ...v, [key]: JSON.stringify(urls) }))
+		} else {
+			setValues(v => ({ ...v, [key]: mediaItems[0]?.url || "" }))
+		}
+	}
+
 	const sortedGroups = Object.keys(grouped).sort()
 
 	return (
@@ -87,7 +142,7 @@ export function SiteContentEditor({ items }: { items: ContentItem[] }) {
 							<div className="space-y-2">
 								<Label htmlFor="key">Key</Label>
 								<Input id="key" name="key" placeholder="section:field" required />
-								<p className="text-xs text-muted-foreground">Use format &quot;section:field&quot; to group entries</p>
+								<p className="text-xs text-muted-foreground">Use format &quot;section:field&quot; to group entries. Suffix with :image or :images for image fields.</p>
 							</div>
 							<div className="space-y-2">
 								<Label htmlFor="value">Value</Label>
@@ -109,6 +164,33 @@ export function SiteContentEditor({ items }: { items: ContentItem[] }) {
 							const colonIdx = item.key.indexOf(":")
 							const displayKey = colonIdx > 0 ? item.key.slice(colonIdx + 1) : item.key
 							const isDirty = values[item.key] !== (item.value || "")
+							const isImg = isImageKey(item.key) || item.type === "image" || isImageValue(item.value)
+							const isMulti = isMultiImageKey(item.key)
+
+							if (isImg) {
+								const mediaItems = parseImageValue(values[item.key], isMulti)
+								return (
+									<div key={item.id} className="space-y-2">
+										<div className="flex items-center justify-between">
+											<Label className="text-sm font-medium">{displayKey}</Label>
+											<Button
+												size="sm"
+												variant={isDirty ? "default" : "outline"}
+												disabled={!isDirty || saving === item.key}
+												onClick={() => handleSave(item.key)}
+											>
+												{saving === item.key ? "..." : "Save"}
+											</Button>
+										</div>
+										<MediaUploader
+											items={mediaItems}
+											onChange={(items) => handleImageChange(item.key, items, isMulti)}
+											maxItems={isMulti ? 20 : 1}
+										/>
+									</div>
+								)
+							}
+
 							return (
 								<div key={item.id} className="flex items-start gap-3">
 									<Label className="w-40 pt-2 text-sm font-medium shrink-0">{displayKey}</Label>

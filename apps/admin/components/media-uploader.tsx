@@ -232,7 +232,7 @@ export function MediaUploader({ items, onChange, maxItems = 20 }: MediaUploaderP
 				<input
 					ref={fileInputRef}
 					type="file"
-					accept="image/*,video/*"
+					accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.csv,.txt,.json,.svg,.woff,.woff2,.ttf,.otf"
 					multiple
 					className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
 					onChange={(e) => {
@@ -245,7 +245,7 @@ export function MediaUploader({ items, onChange, maxItems = 20 }: MediaUploaderP
 				) : (
 					<>
 						<p className="text-sm font-medium">Drop files here or click to browse</p>
-						<p className="text-xs text-muted-foreground mt-1">Images and videos up to 50MB</p>
+						<p className="text-xs text-muted-foreground mt-1">Images, videos, audio, PDFs and documents</p>
 					</>
 				)}
 			</div>

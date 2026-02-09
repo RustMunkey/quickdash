@@ -98,7 +98,6 @@ const PATH_TITLES: Record<string, string> = {
 	"/developers/api-keys": "API Keys",
 	"/developers/webhooks": "Webhook Events",
 	"/developers/notes": "Notes & Bugs",
-	"/developers/test": "Test Page",
 }
 
 function getPageTitle(path: string): string {

@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { MediaUploader, type MediaItem } from "@/components/media-uploader"
 import type { CollectionField } from "@quickdash/db/schema"
 
 interface FieldRendererProps {
@@ -95,7 +96,24 @@ export function FieldRenderer({ field, value, onChange }: FieldRendererProps) {
 				</div>
 			)
 
-		case "image":
+		case "image": {
+			const currentUrl = (value as string) ?? ""
+			const mediaItems: MediaItem[] = currentUrl
+				? [{ id: "existing-0", url: currentUrl, type: "image" }]
+				: []
+
+			return (
+				<div className="space-y-2">
+					<Label>{field.label}{field.required && " *"}</Label>
+					<MediaUploader
+						items={mediaItems}
+						onChange={(items) => onChange(items[0]?.url || "")}
+						maxItems={1}
+					/>
+				</div>
+			)
+		}
+
 		case "url":
 			return (
 				<div className="space-y-2">
@@ -105,7 +123,7 @@ export function FieldRenderer({ field, value, onChange }: FieldRendererProps) {
 						type="url"
 						value={(value as string) ?? ""}
 						onChange={(e) => onChange(e.target.value)}
-						placeholder={field.placeholder || (field.type === "image" ? "https://..." : undefined)}
+						placeholder={field.placeholder || "https://..."}
 						required={field.required}
 					/>
 				</div>

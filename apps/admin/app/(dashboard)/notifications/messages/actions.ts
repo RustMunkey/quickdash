@@ -401,10 +401,8 @@ export async function fetchLinkPreview(url: string): Promise<{
 
 // --- INBOX ---
 import { inboxEmails, inboxReplies } from "@quickdash/db/schema"
-import { Resend } from "resend"
+import { getWorkspaceResend, getWorkspaceEmailConfig } from "@/lib/resend"
 import type { InboxEmail } from "./types"
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 export async function getInboxEmails(): Promise<InboxEmail[]> {
 	const workspace = await requireWorkspace()
@@ -496,16 +494,22 @@ export async function sendInboxReply(data: { emailId: string; body: string }) {
 		.where(eq(users.id, session.user.id))
 		.limit(1)
 
-	const senderName = sender?.name || session.user.name || "Quickdash Support"
+	const senderName = sender?.name || session.user.name || "Support"
 
-	// Send email via Resend
+	// Send email via workspace-scoped Resend
 	let resendId: string | undefined
+	const resend = await getWorkspaceResend(workspace.id)
 	if (resend) {
 		try {
+			const emailConfig = await getWorkspaceEmailConfig(workspace.id)
+			const fromAddress = emailConfig.fromName
+				? `${senderName} <${emailConfig.fromEmail}>`
+				: emailConfig.fromEmail
+
 			const result = await resend.emails.send({
-				from: `${senderName} <support@quickdash.net>`,
+				from: fromAddress,
 				to: email.fromEmail,
-				replyTo: "support@quickdash.net",
+				...(emailConfig.replyTo ? { replyTo: emailConfig.replyTo } : {}),
 				subject: `Re: ${email.subject}`,
 				text: data.body,
 				html: `<div style="font-family: sans-serif; font-size: 14px; line-height: 1.6;">
@@ -513,8 +517,7 @@ export async function sendInboxReply(data: { emailId: string; body: string }) {
 					<hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
 					<p style="color: #666; font-size: 12px;">
 						${senderName}<br>
-						Quickdash Support<br>
-						<a href="https://quickdash.net">quickdash.net</a>
+						${emailConfig.fromName || "Support"}
 					</p>
 				</div>`,
 			})
