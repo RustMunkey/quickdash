@@ -496,18 +496,28 @@ export async function POST(
 					}
 				}
 
-				// Send notification (non-blocking)
-				sendShippingNotification({
-					orderId: tracking.orderId,
-					trackingNumber: normalized.trackingNumber,
-					trackingUrl,
-					carrierName,
-					status: notificationStatus,
-					estimatedDelivery: normalized.estimatedDelivery,
-					location: normalized.location,
-				}).catch((err) => {
-					console.error("[Shipping Webhook] Failed to send notification:", err)
-				})
+				// Get workspaceId from the order for workspace-scoped email
+				const [orderWs] = await db
+					.select({ workspaceId: orders.workspaceId })
+					.from(orders)
+					.where(eq(orders.id, tracking.orderId))
+					.limit(1)
+
+				if (orderWs?.workspaceId) {
+					// Send notification (non-blocking)
+					sendShippingNotification({
+						orderId: tracking.orderId,
+						workspaceId: orderWs.workspaceId,
+						trackingNumber: normalized.trackingNumber,
+						trackingUrl,
+						carrierName,
+						status: notificationStatus,
+						estimatedDelivery: normalized.estimatedDelivery,
+						location: normalized.location,
+					}).catch((err) => {
+						console.error("[Shipping Webhook] Failed to send notification:", err)
+					})
+				}
 			}
 		}
 

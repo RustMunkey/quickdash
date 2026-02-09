@@ -1,14 +1,13 @@
-import { Resend } from "resend"
 import { db } from "@quickdash/db/client"
 import { orders, users } from "@quickdash/db/schema"
 import { eq } from "@quickdash/db/drizzle"
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+import { getWorkspaceResend, getWorkspaceEmailConfig } from "../resend"
 
 type ShippingStatus = "shipped" | "out_for_delivery" | "delivered"
 
 interface ShippingNotificationData {
 	orderId: string
+	workspaceId: string
 	trackingNumber: string
 	trackingUrl?: string
 	carrierName?: string
@@ -66,6 +65,7 @@ const subjects: Record<ShippingStatus, (orderNumber: string) => string> = {
 function getEmailContent(
 	status: ShippingStatus,
 	data: {
+		storeName: string
 		customerName: string
 		orderNumber: string
 		trackingNumber: string
@@ -75,7 +75,7 @@ function getEmailContent(
 		location?: string
 	}
 ) {
-	const { customerName, orderNumber, trackingNumber, trackingUrl, carrierName, estimatedDelivery, location } = data
+	const { storeName, customerName, orderNumber, trackingNumber, trackingUrl, carrierName, estimatedDelivery, location } = data
 	const firstName = customerName?.split(" ")[0] || "there"
 	const trackingLink = trackingUrl
 		? `<a href="${trackingUrl}" style="color: #2563eb; text-decoration: underline;">Track your package</a>`
@@ -91,9 +91,9 @@ Tracking number: ${trackingNumber}
 ${trackingUrl ? `Track your package: ${trackingUrl}` : ""}
 ${estimatedDelivery ? `Estimated delivery: ${estimatedDelivery}` : ""}
 
-Thanks for shopping with Quickdash!
+Thanks for shopping with ${storeName}!
 
-- The Quickdash Team`,
+- The ${storeName} Team`,
 			html: `
 				<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
 					<h1 style="font-size: 24px; color: #111; margin-bottom: 24px;">Your order is on its way!</h1>
@@ -110,11 +110,10 @@ Thanks for shopping with Quickdash!
 						${estimatedDelivery ? `<p style="margin: 12px 0 0 0; font-size: 14px; color: #666;">Estimated delivery: <strong>${estimatedDelivery}</strong></p>` : ""}
 					</div>
 
-					<p style="font-size: 16px; color: #333; line-height: 1.6;">Thanks for shopping with Quickdash!</p>
+					<p style="font-size: 16px; color: #333; line-height: 1.6;">Thanks for shopping with ${storeName}!</p>
 
 					<p style="font-size: 14px; color: #666; margin-top: 32px;">
-						- The Quickdash Team<br>
-						<a href="https://quickdash.net" style="color: #2563eb;">quickdash.net</a>
+						- The ${storeName} Team
 					</p>
 				</div>
 			`,
@@ -130,7 +129,7 @@ ${location ? `Current location: ${location}` : ""}
 
 Keep an eye out for your package!
 
-- The Quickdash Team`,
+- The ${storeName} Team`,
 			html: `
 				<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
 					<h1 style="font-size: 24px; color: #111; margin-bottom: 24px;">Your package is almost there!</h1>
@@ -143,7 +142,7 @@ Keep an eye out for your package!
 
 					<div style="background: #fef3c7; border-radius: 8px; padding: 20px; margin: 24px 0;">
 						<p style="margin: 0; font-size: 16px; color: #92400e;">
-							📦 Out for delivery${location ? ` • ${location}` : ""}
+							Out for delivery${location ? ` - ${location}` : ""}
 						</p>
 					</div>
 
@@ -152,8 +151,7 @@ Keep an eye out for your package!
 					<p style="font-size: 16px; color: #333; line-height: 1.6;">Keep an eye out for your package!</p>
 
 					<p style="font-size: 14px; color: #666; margin-top: 32px;">
-						- The Quickdash Team<br>
-						<a href="https://quickdash.net" style="color: #2563eb;">quickdash.net</a>
+						- The ${storeName} Team
 					</p>
 				</div>
 			`,
@@ -165,9 +163,9 @@ Your order #${orderNumber} has been delivered!
 
 We hope you enjoy your purchase. If you have any questions or concerns, don't hesitate to reach out.
 
-Thanks for shopping with Quickdash!
+Thanks for shopping with ${storeName}!
 
-- The Quickdash Team`,
+- The ${storeName} Team`,
 			html: `
 				<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
 					<h1 style="font-size: 24px; color: #111; margin-bottom: 24px;">Your order has arrived!</h1>
@@ -180,18 +178,16 @@ Thanks for shopping with Quickdash!
 
 					<div style="background: #d1fae5; border-radius: 8px; padding: 20px; margin: 24px 0;">
 						<p style="margin: 0; font-size: 16px; color: #065f46;">
-							✓ Delivered${location ? ` • ${location}` : ""}
+							Delivered${location ? ` - ${location}` : ""}
 						</p>
 					</div>
 
 					<p style="font-size: 16px; color: #333; line-height: 1.6;">
-						We hope you enjoy your purchase! If you have any questions or concerns,
-						<a href="mailto:support@quickdash.net" style="color: #2563eb;">reach out to us</a>.
+						We hope you enjoy your purchase! If you have any questions or concerns, feel free to reach out.
 					</p>
 
 					<p style="font-size: 14px; color: #666; margin-top: 32px;">
-						- The Quickdash Team<br>
-						<a href="https://quickdash.net" style="color: #2563eb;">quickdash.net</a>
+						- The ${storeName} Team
 					</p>
 				</div>
 			`,
@@ -216,11 +212,12 @@ export function mapToNotificationStatus(internalStatus: string): ShippingStatus 
 	return statusMap[internalStatus] || null
 }
 
-// Send shipping notification email
+// Send shipping notification email — fully workspace-scoped
 export async function sendShippingNotification(data: ShippingNotificationData): Promise<{ success: boolean; error?: string }> {
+	const resend = await getWorkspaceResend(data.workspaceId)
 	if (!resend) {
-		console.log("[Shipping Notification] Resend not configured, skipping email")
-		return { success: false, error: "Resend not configured" }
+		console.log(`[Shipping Notification] No Resend configured for workspace ${data.workspaceId}, skipping email`)
+		return { success: false, error: "Resend not configured for this workspace" }
 	}
 
 	try {
@@ -236,8 +233,16 @@ export async function sendShippingNotification(data: ShippingNotificationData): 
 			return { success: false, error: "No customer email" }
 		}
 
+		// Get workspace email config for from address
+		const emailConfig = await getWorkspaceEmailConfig(data.workspaceId)
+		const storeName = emailConfig.fromName || "Your Store"
+		const from = emailConfig.fromName
+			? `${emailConfig.fromName} <${emailConfig.fromEmail}>`
+			: emailConfig.fromEmail
+
 		const subject = subjects[data.status](order.orderNumber || "Unknown")
 		const content = getEmailContent(data.status, {
+			storeName,
 			customerName: order.customerName || "Customer",
 			orderNumber: order.orderNumber || "Unknown",
 			trackingNumber: data.trackingNumber,
@@ -248,14 +253,15 @@ export async function sendShippingNotification(data: ShippingNotificationData): 
 		})
 
 		await resend.emails.send({
-			from: "Quickdash <noreply@quickdash.net>",
+			from,
 			to: [order.email],
 			subject,
 			text: content.text,
 			html: content.html,
+			...(emailConfig.replyTo ? { replyTo: emailConfig.replyTo } : {}),
 		})
 
-		console.log(`[Shipping Notification] Sent ${data.status} email to ${order.email} for order ${order.orderNumber}`)
+		console.log(`[Shipping Notification] Sent ${data.status} email to ${order.email} for order ${order.orderNumber} (workspace: ${data.workspaceId})`)
 		return { success: true }
 	} catch (error) {
 		console.error("[Shipping Notification] Failed to send:", error)

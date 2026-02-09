@@ -81,9 +81,11 @@ function IntegrationCard({ name, description, connected, children, onSave }: Int
 type WorkspaceEmailConfig = {
 	hasCustomConfig: boolean
 	apiKey: string
+	webhookSecret: string
 	fromEmail: string
 	fromName: string
 	replyTo: string
+	webhookUrl: string
 }
 
 type WorkspaceStripeConfig = {
@@ -117,6 +119,7 @@ type WorkspaceReownConfig = {
 export function IntegrationsClient({ settings, workspaceEmail, workspaceStripe, workspacePayPal, workspacePolar, workspaceReown }: { settings: Setting[]; workspaceEmail: WorkspaceEmailConfig; workspaceStripe: WorkspaceStripeConfig; workspacePayPal: WorkspacePayPalConfig; workspacePolar: WorkspacePolarConfig; workspaceReown: WorkspaceReownConfig }) {
 	// Workspace Email (BYOK)
 	const [wsEmailApiKey, setWsEmailApiKey] = useState(workspaceEmail.apiKey)
+	const [wsEmailWebhookSecret, setWsEmailWebhookSecret] = useState(workspaceEmail.webhookSecret)
 	const [wsEmailFromEmail, setWsEmailFromEmail] = useState(workspaceEmail.fromEmail)
 	const [wsEmailFromName, setWsEmailFromName] = useState(workspaceEmail.fromName)
 	const [wsEmailReplyTo, setWsEmailReplyTo] = useState(workspaceEmail.replyTo)
@@ -477,6 +480,7 @@ export function IntegrationsClient({ settings, workspaceEmail, workspaceStripe, 
 					onSave={async () => {
 						await saveWorkspaceEmailConfig({
 							apiKey: wsEmailApiKey,
+							webhookSecret: wsEmailWebhookSecret,
 							fromEmail: wsEmailFromEmail,
 							fromName: wsEmailFromName,
 							replyTo: wsEmailReplyTo,
@@ -497,6 +501,18 @@ export function IntegrationsClient({ settings, workspaceEmail, workspaceStripe, 
 							</p>
 						</div>
 						<div className="space-y-2">
+							<Label>Webhook Signing Secret</Label>
+							<Input
+								type="password"
+								value={wsEmailWebhookSecret}
+								onChange={(e) => setWsEmailWebhookSecret(e.target.value)}
+								placeholder="whsec_..."
+							/>
+							<p className="text-xs text-muted-foreground">
+								From Resend → Webhooks → your endpoint → Signing Secret.
+							</p>
+						</div>
+						<div className="space-y-2">
 							<Label>From Email</Label>
 							<Input
 								value={wsEmailFromEmail}
@@ -506,14 +522,6 @@ export function IntegrationsClient({ settings, workspaceEmail, workspaceStripe, 
 							<p className="text-xs text-muted-foreground">Must be verified in your Resend account.</p>
 						</div>
 						<div className="space-y-2">
-							<Label>From Name (optional)</Label>
-							<Input
-								value={wsEmailFromName}
-								onChange={(e) => setWsEmailFromName(e.target.value)}
-								placeholder="Your Company"
-							/>
-						</div>
-						<div className="space-y-2">
 							<Label>Reply-To (optional)</Label>
 							<Input
 								value={wsEmailReplyTo}
@@ -521,7 +529,41 @@ export function IntegrationsClient({ settings, workspaceEmail, workspaceStripe, 
 								placeholder="support@yourdomain.com"
 							/>
 						</div>
+						<div className="space-y-2">
+							<Label>From Name (optional)</Label>
+							<Input
+								value={wsEmailFromName}
+								onChange={(e) => setWsEmailFromName(e.target.value)}
+								placeholder="Your Company"
+							/>
+						</div>
 					</div>
+					{workspaceEmail.webhookUrl && (
+						<div className="space-y-2 pt-3 border-t">
+							<Label>Your Webhook URL</Label>
+							<div className="flex items-center gap-2">
+								<Input
+									readOnly
+									value={workspaceEmail.webhookUrl}
+									className="font-mono text-xs"
+								/>
+								<Button
+									size="sm"
+									variant="outline"
+									className="shrink-0"
+									onClick={() => {
+										navigator.clipboard.writeText(workspaceEmail.webhookUrl)
+										toast.success("Webhook URL copied")
+									}}
+								>
+									Copy
+								</Button>
+							</div>
+							<p className="text-xs text-muted-foreground">
+								Paste this URL into your Resend dashboard under Webhooks. Each workspace has a unique URL.
+							</p>
+						</div>
+					)}
 					{wsEmailApiKey && (
 						<div className="pt-2 border-t">
 							<Button
@@ -530,6 +572,7 @@ export function IntegrationsClient({ settings, workspaceEmail, workspaceStripe, 
 								onClick={async () => {
 									await deleteWorkspaceEmailConfig()
 									setWsEmailApiKey("")
+									setWsEmailWebhookSecret("")
 									setWsEmailFromEmail("")
 									setWsEmailFromName("")
 									setWsEmailReplyTo("")

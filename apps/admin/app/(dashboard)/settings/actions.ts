@@ -101,13 +101,15 @@ export async function getWorkspaceEmailConfig() {
 		return {
 			hasCustomConfig: false,
 			apiKey: "",
+			webhookSecret: "",
 			fromEmail: "",
 			fromName: "",
 			replyTo: "",
+			webhookUrl: "",
 		}
 	}
 
-	const credentials = integration.credentials as { apiKey?: string } | null
+	const credentials = integration.credentials as { apiKey?: string; webhookSecret?: string } | null
 	const metadata = integration.metadata as {
 		fromEmail?: string
 		fromName?: string
@@ -117,14 +119,17 @@ export async function getWorkspaceEmailConfig() {
 	return {
 		hasCustomConfig: true,
 		apiKey: credentials?.apiKey || "",
+		webhookSecret: credentials?.webhookSecret || "",
 		fromEmail: metadata?.fromEmail || "",
 		fromName: metadata?.fromName || "",
 		replyTo: metadata?.replyTo || "",
+		webhookUrl: `${process.env.NEXT_PUBLIC_ADMIN_URL || ""}/api/webhooks/resend/${workspace.id}`,
 	}
 }
 
 export async function saveWorkspaceEmailConfig(config: {
 	apiKey: string
+	webhookSecret: string
 	fromEmail: string
 	fromName: string
 	replyTo: string
@@ -143,7 +148,7 @@ export async function saveWorkspaceEmailConfig(config: {
 		)
 		.limit(1)
 
-	const credentials = { apiKey: config.apiKey }
+	const credentials = { apiKey: config.apiKey, webhookSecret: config.webhookSecret }
 	const metadata = {
 		fromEmail: config.fromEmail,
 		fromName: config.fromName,

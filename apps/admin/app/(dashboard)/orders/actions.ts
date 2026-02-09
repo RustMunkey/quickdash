@@ -276,6 +276,7 @@ export async function addTracking(id: string, trackingNumber: string, trackingUr
 	// Send "shipped" notification to customer (non-blocking)
 	sendShippingNotification({
 		orderId: order.id,
+		workspaceId: workspace.id,
 		trackingNumber,
 		trackingUrl: finalTrackingUrl || undefined,
 		carrierName: detectedCarrier?.name,
@@ -884,6 +885,7 @@ export async function generateShippingLabel(
 	// Send shipping notification to customer
 	sendShippingNotification({
 		orderId: order.id,
+		workspaceId: workspace.id,
 		trackingNumber: label.trackingNumber,
 		trackingUrl: label.trackingUrl,
 		carrierName: label.carrier,

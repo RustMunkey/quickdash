@@ -2,7 +2,7 @@ import { inngest } from "../inngest"
 import { db } from "@quickdash/db"
 import { emailTemplates, messages } from "@quickdash/db/schema"
 import { eq } from "@quickdash/db/drizzle"
-import { getResend } from "../resend"
+import { getResend, getWorkspaceResend, getWorkspaceEmailConfig } from "../resend"
 import { isDuplicate } from "../redis"
 
 /**
@@ -13,7 +13,6 @@ export const sendQueuedEmail = inngest.createFunction(
 	{
 		id: "send-queued-email",
 		retries: 3,
-		// Concurrency limit to avoid overwhelming email service
 		concurrency: {
 			limit: 5,
 		},
@@ -27,7 +26,6 @@ export const sendQueuedEmail = inngest.createFunction(
 			sentBy,
 			recipientId,
 			workspaceId,
-			// Deduplication key - if provided, prevents sending same email twice within 5 minutes
 			deduplicationKey,
 		} = event.data as {
 			to: string
@@ -42,14 +40,17 @@ export const sendQueuedEmail = inngest.createFunction(
 		// Check for duplicate if key provided
 		if (deduplicationKey) {
 			const isDupe = await step.run("check-duplicate", async () => {
-				return isDuplicate(`email:${deduplicationKey}`, 300) // 5 minute window
+				return isDuplicate(`email:${deduplicationKey}`, 300)
 			})
 			if (isDupe) {
 				return { success: true, skipped: true, reason: "Duplicate email detected" }
 			}
 		}
 
-		const resend = getResend()
+		// Use workspace-scoped Resend if workspaceId provided, otherwise platform-level
+		const resend = workspaceId
+			? await getWorkspaceResend(workspaceId)
+			: getResend()
 		if (!resend) {
 			return { success: false, error: "Email service not configured" }
 		}
@@ -78,15 +79,22 @@ export const sendQueuedEmail = inngest.createFunction(
 			body = body.replaceAll(placeholder, value)
 		}
 
-		// Send the email
+		// Send the email using workspace-scoped config
 		const result = await step.run("send-email", async () => {
-			const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@quickdash.app"
+			const emailConfig = workspaceId
+				? await getWorkspaceEmailConfig(workspaceId)
+				: { fromEmail: process.env.RESEND_FROM_EMAIL || "noreply@quickdash.app" }
+
+			const from = "fromName" in emailConfig && emailConfig.fromName
+				? `${emailConfig.fromName} <${emailConfig.fromEmail}>`
+				: emailConfig.fromEmail
 
 			return resend.emails.send({
-				from: fromEmail,
+				from,
 				to,
 				subject,
 				html: body,
+				...("replyTo" in emailConfig && emailConfig.replyTo ? { replyTo: emailConfig.replyTo } : {}),
 			})
 		})
 
@@ -136,14 +144,16 @@ export const sendDirectEmail = inngest.createFunction(
 			subject,
 			text,
 			html,
+			workspaceId,
 			deduplicationKey,
 		} = event.data as {
-			from: string
+			from?: string
 			to: string
 			replyTo?: string
 			subject: string
 			text?: string
 			html?: string
+			workspaceId?: string
 			deduplicationKey?: string
 		}
 
@@ -157,19 +167,38 @@ export const sendDirectEmail = inngest.createFunction(
 			}
 		}
 
-		const resend = getResend()
+		// Use workspace-scoped Resend if workspaceId provided, otherwise platform-level
+		const resend = workspaceId
+			? await getWorkspaceResend(workspaceId)
+			: getResend()
 		if (!resend) {
 			return { success: false, error: "Email service not configured" }
 		}
 
+		// If no explicit "from", use workspace config
+		let fromAddress = from
+		let finalReplyTo = replyTo
+		if (!fromAddress && workspaceId) {
+			const emailConfig = await getWorkspaceEmailConfig(workspaceId)
+			fromAddress = emailConfig.fromName
+				? `${emailConfig.fromName} <${emailConfig.fromEmail}>`
+				: emailConfig.fromEmail
+			if (!finalReplyTo && emailConfig.replyTo) {
+				finalReplyTo = emailConfig.replyTo
+			}
+		}
+		if (!fromAddress) {
+			fromAddress = process.env.RESEND_FROM_EMAIL || "noreply@quickdash.app"
+		}
+
 		const result = await step.run("send-email", async () => {
 			return resend.emails.send({
-				from,
+				from: fromAddress,
 				to,
 				subject,
 				html: html || text || "",
 				...(text && { text }),
-				...(replyTo && { replyTo }),
+				...(finalReplyTo && { replyTo: finalReplyTo }),
 			})
 		})
 

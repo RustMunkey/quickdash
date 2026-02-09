@@ -349,6 +349,7 @@ export async function POST(request: Request) {
 						// Send customer shipped notification
 						sendShippingNotification({
 							orderId,
+							workspaceId: workspace.id,
 							trackingNumber,
 							trackingUrl: carrier?.trackingUrl,
 							carrierName: carrier?.name,

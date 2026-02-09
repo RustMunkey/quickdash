@@ -55,8 +55,9 @@ export async function getWorkspaceResend(workspaceId: string): Promise<Resend | 
 		}
 	}
 
-	// Fall back to default
-	return getResend()
+	// No workspace config — do NOT fall back to platform key
+	// Each workspace must configure their own Resend integration
+	return null
 }
 
 /**
