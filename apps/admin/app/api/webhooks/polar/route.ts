@@ -10,12 +10,22 @@ import { verifyPolarSignature } from "@/lib/webhooks/verify"
 import { parsePolarEvent, type PolarWebhookEvent } from "@/lib/webhooks/polar"
 
 export async function POST(request: Request) {
-	const signature = request.headers.get("webhook-signature") || ""
 	const rawBody = await request.text()
 
-	// Verify signature if secret is configured
+	// Verify signature if secret is configured (Standard Webhooks / Svix format)
 	if (env.POLAR_WEBHOOK_SECRET) {
-		const isValid = verifyPolarSignature(rawBody, signature, env.POLAR_WEBHOOK_SECRET)
+		const webhookHeaders = {
+			id: request.headers.get("webhook-id") || request.headers.get("svix-id") || "",
+			timestamp: request.headers.get("webhook-timestamp") || request.headers.get("svix-timestamp") || "",
+			signature: request.headers.get("webhook-signature") || request.headers.get("svix-signature") || "",
+		}
+
+		if (!webhookHeaders.id || !webhookHeaders.timestamp || !webhookHeaders.signature) {
+			console.error("Polar webhook missing required headers (webhook-id, webhook-timestamp, webhook-signature)")
+			return NextResponse.json({ error: "Missing webhook headers" }, { status: 401 })
+		}
+
+		const isValid = verifyPolarSignature(rawBody, webhookHeaders, env.POLAR_WEBHOOK_SECRET)
 		if (!isValid) {
 			console.error("Polar webhook signature verification failed")
 			return NextResponse.json({ error: "Invalid signature" }, { status: 401 })

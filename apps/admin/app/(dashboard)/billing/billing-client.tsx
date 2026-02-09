@@ -12,7 +12,7 @@ import { createCheckoutUrl } from "./actions"
 import type { SubscriptionTier, WorkspaceFeatures } from "@quickdash/db/schema"
 
 type TierInfo = Record<SubscriptionTier, { name: string; price: number; description: string }>
-type TierLimits = Record<SubscriptionTier, { workspaces: number; storefronts: number; teamMembers: number; features: WorkspaceFeatures }>
+type TierLimits = Record<SubscriptionTier, { workspaces: number; storefronts: number; teamMembers: number; maxWidgets: number; maxSongs: number; maxStations: number; features: WorkspaceFeatures }>
 
 type MeteredUsage = {
 	workflow_runs: number
@@ -34,13 +34,16 @@ type BillingInfo = {
 	features: WorkspaceFeatures
 }
 
-const DISPLAY_TIERS: SubscriptionTier[] = ["free", "lite", "pro", "max", "scale"]
+const DISPLAY_TIERS: SubscriptionTier[] = ["hobby", "lite", "essentials", "pro"]
 
-const FEATURE_LABELS: Record<keyof WorkspaceFeatures, string> = {
+const FEATURE_LABELS: Partial<Record<keyof WorkspaceFeatures, string>> = {
 	analytics: "Analytics",
-	integrations: "Integrations",
-	api: "API Access",
+	reviews: "Reviews",
+	auctions: "Auctions",
 	automation: "Automation",
+	crm: "CRM",
+	integrations: "Integrations",
+	adminApi: "Admin API",
 	whiteLabel: "White Label",
 	customDomain: "Custom Domains",
 }
@@ -77,12 +80,12 @@ export function BillingClient({
 	}
 
 	const tierOrder: Record<SubscriptionTier, number> = {
-		free: 0,
+		hobby: 0,
 		lite: 1,
-		pro: 2,
-		max: 3,
-		scale: 4,
-		beta: 0, // beta is comped — treat as free-tier for upgrade purposes
+		essentials: 2,
+		pro: 3,
+		teams: 4,
+		beta: 5, // beta is comped — treat as top-tier
 	}
 
 	const currentTierIndex = tierOrder[billing.tier]
@@ -197,7 +200,7 @@ export function BillingClient({
 											<Badge variant="secondary" className="w-full justify-center text-xs py-1.5">
 												Current Plan
 											</Badge>
-										) : tier === "free" ? (
+										) : tier === "hobby" ? (
 											isDowngrade ? (
 												<Button
 													size="sm"
@@ -208,7 +211,7 @@ export function BillingClient({
 													Downgrade
 												</Button>
 											) : null
-										) : tier === "scale" ? (
+										) : tier === "teams" ? (
 											<Button
 												size="sm"
 												variant="outline"

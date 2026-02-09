@@ -50,10 +50,10 @@ export async function checkPromoEligibility(deviceFingerprint: string) {
 		.where(eq(users.id, userId))
 		.limit(1)
 
-	if (user && user.subscriptionTier !== "free") {
+	if (user && user.subscriptionTier !== "hobby") {
 		return {
 			eligible: false,
-			reason: "This offer is only available for new users on the Free plan.",
+			reason: "This offer is only available for new users on the Hobby plan.",
 		}
 	}
 
@@ -62,7 +62,7 @@ export async function checkPromoEligibility(deviceFingerprint: string) {
 
 /**
  * Claim the introductory pricing offer.
- * Creates a Polar checkout for the $5/mo promo product and records the claim.
+ * Creates a Polar checkout for the discounted Essentials promo product and records the claim.
  */
 export async function claimIntroOffer(deviceFingerprint: string) {
 	const session = await auth.api.getSession({ headers: await headers() })
@@ -176,6 +176,9 @@ export async function activatePromoClaim(
 		.set({
 			maxStorefronts: limits.storefronts,
 			maxTeamMembers: limits.teamMembers,
+			maxWidgets: limits.maxWidgets,
+			maxSongs: limits.maxSongs,
+			maxStations: limits.maxStations,
 			features: limits.features,
 			updatedAt: new Date(),
 		})

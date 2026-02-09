@@ -43,7 +43,7 @@ export const users = pgTable("users", {
 	onboardingCompletedAt: timestamp("onboarding_completed_at"), // null = needs onboarding
 
 	// Subscription (per-user billing)
-	subscriptionTier: text("subscription_tier").$type<SubscriptionTier>().default("free").notNull(),
+	subscriptionTier: text("subscription_tier").$type<SubscriptionTier>().default("hobby").notNull(),
 	subscriptionStatus: text("subscription_status").default("active"), // active | past_due | canceled
 	polarSubscriptionId: text("polar_subscription_id"),
 

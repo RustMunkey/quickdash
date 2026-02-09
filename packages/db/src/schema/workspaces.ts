@@ -12,65 +12,176 @@ import {
 import { users } from "./users";
 
 // Subscription tier type
-export type SubscriptionTier = "free" | "lite" | "pro" | "max" | "scale" | "beta";
+export type SubscriptionTier = "hobby" | "lite" | "essentials" | "pro" | "teams" | "beta";
 
 // Workspace features based on tier
 export type WorkspaceFeatures = {
-	api: boolean;
+	// Commerce
+	analytics: boolean;
+	reviews: boolean;
+	auctions: boolean;
+	segments: boolean;
+	loyalty: boolean;
+	giftCards: boolean;
+	subscriptions: boolean;
+
+	// Shipping
+	tracking: boolean;
+	pendingReview: boolean;
+	suppliers: boolean;
+
+	// Marketing
 	automation: boolean;
+	campaigns: boolean;
+	emailTemplates: boolean;
+	seo: boolean;
+
+	// Content
+	collections: boolean;
+	siteContent: boolean;
+	mediaLibrary: boolean;
+
+	// CRM
+	crm: boolean;
+	scheduling: boolean;
+
+	// Communication
+	servers: boolean;
+	teamChat: boolean;
+	inbox: boolean;
+	inboundCalling: boolean;
+	outboundCalling: boolean;
+	callNotifications: boolean;
+
+	// Developer
+	integrations: boolean;
+	adminApi: boolean;
+	webhookEvents: boolean;
+
+	// Settings
+	permissions: boolean;
+	sessions: boolean;
+	exports: boolean;
+
+	// Extras
+	widgets: boolean;
+	musicLibrary: boolean;
+
+	// Premium
 	whiteLabel: boolean;
 	customDomain: boolean;
-	analytics: boolean;
-	integrations: boolean;
+};
+
+// Default features for hobby tier
+const HOBBY_FEATURES: WorkspaceFeatures = {
+	analytics: false, reviews: false, auctions: false, segments: false,
+	loyalty: false, giftCards: false, subscriptions: false,
+	tracking: true, pendingReview: false, suppliers: false,
+	automation: false, campaigns: false, emailTemplates: false, seo: false,
+	collections: true, siteContent: true, mediaLibrary: false,
+	crm: false, scheduling: false,
+	servers: false, teamChat: false, inbox: false,
+	inboundCalling: false, outboundCalling: false, callNotifications: false,
+	integrations: false, adminApi: false, webhookEvents: false,
+	permissions: false, sessions: false, exports: false,
+	widgets: true, musicLibrary: true,
+	whiteLabel: false, customDomain: false,
+};
+
+const LITE_FEATURES: WorkspaceFeatures = {
+	analytics: true, reviews: true, auctions: false, segments: false,
+	loyalty: false, giftCards: false, subscriptions: false,
+	tracking: true, pendingReview: false, suppliers: false,
+	automation: false, campaigns: false, emailTemplates: false, seo: false,
+	collections: true, siteContent: true, mediaLibrary: false,
+	crm: false, scheduling: false,
+	servers: true, teamChat: true, inbox: false,
+	inboundCalling: true, outboundCalling: false, callNotifications: false,
+	integrations: false, adminApi: false, webhookEvents: false,
+	permissions: true, sessions: true, exports: true,
+	widgets: true, musicLibrary: true,
+	whiteLabel: false, customDomain: false,
+};
+
+const ESSENTIALS_FEATURES: WorkspaceFeatures = {
+	analytics: true, reviews: true, auctions: true, segments: true,
+	loyalty: true, giftCards: true, subscriptions: true,
+	tracking: true, pendingReview: true, suppliers: false,
+	automation: false, campaigns: false, emailTemplates: true, seo: true,
+	collections: true, siteContent: true, mediaLibrary: true,
+	crm: false, scheduling: false,
+	servers: true, teamChat: true, inbox: true,
+	inboundCalling: true, outboundCalling: false, callNotifications: true,
+	integrations: true, adminApi: true, webhookEvents: true,
+	permissions: true, sessions: true, exports: true,
+	widgets: true, musicLibrary: true,
+	whiteLabel: false, customDomain: false,
+};
+
+const ALL_FEATURES: WorkspaceFeatures = {
+	analytics: true, reviews: true, auctions: true, segments: true,
+	loyalty: true, giftCards: true, subscriptions: true,
+	tracking: true, pendingReview: true, suppliers: true,
+	automation: true, campaigns: true, emailTemplates: true, seo: true,
+	collections: true, siteContent: true, mediaLibrary: true,
+	crm: true, scheduling: true,
+	servers: true, teamChat: true, inbox: true,
+	inboundCalling: true, outboundCalling: true, callNotifications: true,
+	integrations: true, adminApi: true, webhookEvents: true,
+	permissions: true, sessions: true, exports: true,
+	widgets: true, musicLibrary: true,
+	whiteLabel: true, customDomain: true,
 };
 
 // Tier display info
 export const TIER_INFO: Record<SubscriptionTier, { name: string; price: number; description: string }> = {
-	free: { name: "Free", price: 0, description: "Get started with the basics" },
-	lite: { name: "Lite", price: 5, description: "For small businesses getting started" },
-	pro: { name: "Pro", price: 20, description: "For growing businesses" },
-	max: { name: "Max", price: 100, description: "Everything unlimited" },
-	scale: { name: "Scale", price: -1, description: "Custom pricing for large teams" },
+	hobby: { name: "Hobby", price: 0, description: "Get started for free" },
+	lite: { name: "Lite", price: 20, description: "For small businesses getting serious" },
+	essentials: { name: "Essentials", price: 50, description: "Full commerce toolkit for growing businesses" },
+	pro: { name: "Pro", price: 100, description: "Everything unlocked for power users" },
+	teams: { name: "Teams", price: -1, description: "Custom pricing for large organizations" },
 	beta: { name: "Beta", price: 0, description: "Early access — all features unlocked" },
 };
 
 // Tier limits (storefronts + teamMembers are per-workspace, workspaces is per-user)
-export const TIER_LIMITS: Record<SubscriptionTier, { workspaces: number; storefronts: number; teamMembers: number; features: WorkspaceFeatures }> = {
-	free: {
-		workspaces: 1,
-		storefronts: 1,
-		teamMembers: 3,
-		features: { api: false, automation: false, whiteLabel: false, customDomain: false, analytics: false, integrations: false },
+export const TIER_LIMITS: Record<SubscriptionTier, {
+	workspaces: number;
+	storefronts: number;
+	teamMembers: number;
+	maxWidgets: number;
+	maxSongs: number;
+	maxStations: number;
+	features: WorkspaceFeatures;
+}> = {
+	hobby: {
+		workspaces: 1, storefronts: 1, teamMembers: 0,
+		maxWidgets: 2, maxSongs: 5, maxStations: 1,
+		features: HOBBY_FEATURES,
 	},
 	lite: {
-		workspaces: 3,
-		storefronts: 3,
-		teamMembers: 15,
-		features: { api: false, automation: false, whiteLabel: false, customDomain: false, analytics: true, integrations: true },
+		workspaces: 1, storefronts: 1, teamMembers: 5,
+		maxWidgets: 5, maxSongs: 15, maxStations: 3,
+		features: LITE_FEATURES,
+	},
+	essentials: {
+		workspaces: 1, storefronts: 2, teamMembers: 10,
+		maxWidgets: 10, maxSongs: 50, maxStations: 5,
+		features: ESSENTIALS_FEATURES,
 	},
 	pro: {
-		workspaces: 10,
-		storefronts: 10,
-		teamMembers: 100,
-		features: { api: true, automation: true, whiteLabel: false, customDomain: false, analytics: true, integrations: true },
+		workspaces: 4, storefronts: 5, teamMembers: 50,
+		maxWidgets: -1, maxSongs: -1, maxStations: -1,
+		features: ALL_FEATURES,
 	},
-	max: {
-		workspaces: -1, // unlimited
-		storefronts: -1, // unlimited
-		teamMembers: -1, // unlimited
-		features: { api: true, automation: true, whiteLabel: true, customDomain: true, analytics: true, integrations: true },
-	},
-	scale: {
-		workspaces: -1, // unlimited
-		storefronts: -1, // unlimited
-		teamMembers: -1, // unlimited
-		features: { api: true, automation: true, whiteLabel: true, customDomain: true, analytics: true, integrations: true },
+	teams: {
+		workspaces: -1, storefronts: -1, teamMembers: -1,
+		maxWidgets: -1, maxSongs: -1, maxStations: -1,
+		features: ALL_FEATURES,
 	},
 	beta: {
-		workspaces: -1, // unlimited
-		storefronts: -1, // unlimited
-		teamMembers: -1, // unlimited
-		features: { api: true, automation: true, whiteLabel: true, customDomain: true, analytics: true, integrations: true },
+		workspaces: -1, storefronts: -1, teamMembers: -1,
+		maxWidgets: -1, maxSongs: -1, maxStations: -1,
+		features: ALL_FEATURES,
 	},
 };
 
@@ -97,17 +208,13 @@ export const workspaces = pgTable("workspaces", {
 
 	// Computed limits (cached from tier, can be overridden)
 	maxStorefronts: integer("max_storefronts").default(1),
-	maxTeamMembers: integer("max_team_members").default(3),
+	maxTeamMembers: integer("max_team_members").default(0),
+	maxWidgets: integer("max_widgets").default(2),
+	maxSongs: integer("max_songs").default(5),
+	maxStations: integer("max_stations").default(1),
 
 	// Features (cached from tier, can be overridden for special cases)
-	features: jsonb("features").$type<WorkspaceFeatures>().default({
-		api: false,
-		automation: false,
-		whiteLabel: false,
-		customDomain: false,
-		analytics: false,
-		integrations: false,
-	}),
+	features: jsonb("features").$type<WorkspaceFeatures>().default(HOBBY_FEATURES),
 
 	// Timestamps
 	createdAt: timestamp("created_at").defaultNow().notNull(),

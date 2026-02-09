@@ -106,7 +106,7 @@ export async function getActiveWorkspace(): Promise<WorkspaceContext | null> {
 
 	if (!result) return null
 
-	const ownerTier = (result.ownerTier || "free") as SubscriptionTier
+	const ownerTier = (result.ownerTier || "hobby") as SubscriptionTier
 	const tierLimits = TIER_LIMITS[ownerTier]
 
 	return {
@@ -286,7 +286,7 @@ export async function getWorkspaceById(workspaceId: string): Promise<WorkspaceCo
 
 	if (!result) return null
 
-	const ownerTier = (result.ownerTier || "free") as SubscriptionTier
+	const ownerTier = (result.ownerTier || "hobby") as SubscriptionTier
 	const tierLimits = TIER_LIMITS[ownerTier]
 
 	return {
@@ -505,7 +505,7 @@ export async function getUserSubscription(): Promise<{
 		.where(eq(users.id, user.id))
 		.limit(1)
 
-	const tier = (dbUser?.subscriptionTier || "free") as SubscriptionTier
+	const tier = (dbUser?.subscriptionTier || "hobby") as SubscriptionTier
 	const limits = TIER_LIMITS[tier]
 
 	return {

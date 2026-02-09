@@ -6,8 +6,8 @@ import { FeatureGatePage } from "@/components/feature-gate"
 
 export default async function ApiKeysPage() {
 	const workspace = await requireWorkspace()
-	if (!workspace.features.api) {
-		return <FeatureGatePage feature="api" features={workspace.features} featureName="API Access" />
+	if (!workspace.features.adminApi) {
+		return <FeatureGatePage feature="adminApi" features={workspace.features} featureName="Admin API Access" />
 	}
 
 	const [storefronts, adminApiKeys] = await Promise.all([

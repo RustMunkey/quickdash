@@ -3,27 +3,51 @@ import type { WebhookProvider } from "./index"
 
 /**
  * Verify Polar webhook signature
- * Polar uses HMAC-SHA256 with the webhook secret
+ * Polar uses Standard Webhooks (Svix) format:
+ * - Headers: webhook-id, webhook-timestamp, webhook-signature
+ * - Secret: base64-encoded after prefix (whsec_ or polar_whs_)
+ * - Signed content: "${id}.${timestamp}.${body}"
+ * - Signature format: "v1,<base64>"
  */
 export function verifyPolarSignature(
 	payload: string,
-	signature: string,
+	headers: { id: string; timestamp: string; signature: string },
 	secret: string
 ): boolean {
 	try {
-		const expectedSignature = createHmac("sha256", secret)
-			.update(payload)
-			.digest("hex")
+		// Decode the secret: strip prefix and base64-decode
+		const parts = secret.split("_")
+		const secretBase64 = parts[parts.length - 1]
+		const secretBytes = Buffer.from(secretBase64, "base64")
 
-		// Polar sends signature as "sha256=<hex>"
-		const actualSignature = signature.startsWith("sha256=")
-			? signature.slice(7)
-			: signature
+		// Standard Webhooks signed content: "${msg_id}.${timestamp}.${body}"
+		const signedContent = `${headers.id}.${headers.timestamp}.${payload}`
 
-		return timingSafeEqual(
-			Buffer.from(expectedSignature),
-			Buffer.from(actualSignature)
-		)
+		const expectedSignature = createHmac("sha256", secretBytes)
+			.update(signedContent)
+			.digest("base64")
+
+		// Signature header: space-separated "v1,<base64>" entries
+		const signatures = headers.signature.split(" ")
+		for (const sig of signatures) {
+			const [version, sigValue] = sig.split(",")
+			if (version === "v1" && sigValue) {
+				try {
+					if (
+						timingSafeEqual(
+							Buffer.from(expectedSignature),
+							Buffer.from(sigValue)
+						)
+					) {
+						return true
+					}
+				} catch {
+					continue
+				}
+			}
+		}
+
+		return false
 	} catch {
 		return false
 	}

@@ -117,7 +117,7 @@ export async function verifyApiKey(apiKey: string): Promise<{
 
 	// Check if workspace has API access feature enabled
 	const wsFeatures = keyRecord.workspaceFeatures as WorkspaceFeatures | null
-	if (wsFeatures && !wsFeatures.api) {
+	if (wsFeatures && !wsFeatures.adminApi) {
 		return { valid: false, error: "API access is not available on your current plan. Upgrade to unlock API access." }
 	}
 

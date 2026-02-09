@@ -46,6 +46,9 @@ async function applyTier(userId: string, tier: SubscriptionTier, polarSubscripti
 		.set({
 			maxStorefronts: limits.storefronts,
 			maxTeamMembers: limits.teamMembers,
+			maxWidgets: limits.maxWidgets,
+			maxSongs: limits.maxSongs,
+			maxStations: limits.maxStations,
 			features: limits.features,
 			updatedAt: new Date(),
 		})
@@ -149,7 +152,7 @@ export const processPolarSubscriptionCreated = inngest.createFunction(
 				await notifyUser(
 					match.userId,
 					"Promo activated!",
-					`Your introductory Pro plan is now active. Enjoy all Pro features for 3 months!`
+					`Your introductory Essentials plan is now active. Enjoy all Essentials features for 3 months!`
 				)
 				console.log(`[Polar] Promo claim activated for user ${match.userId}`)
 				return
@@ -262,12 +265,12 @@ export const processPolarSubscriptionRevoked = inngest.createFunction(
 			const match = await findUserByEmail(subscription.user.email)
 			if (!match) return
 
-			// Downgrade user to free tier and sync all workspaces
-			const freeLimits = TIER_LIMITS.free
+			// Downgrade user to hobby tier and sync all workspaces
+			const hobbyLimits = TIER_LIMITS.hobby
 			await db
 				.update(users)
 				.set({
-					subscriptionTier: "free",
+					subscriptionTier: "hobby",
 					subscriptionStatus: "active",
 					polarSubscriptionId: null,
 					updatedAt: new Date(),
@@ -277,9 +280,12 @@ export const processPolarSubscriptionRevoked = inngest.createFunction(
 			await db
 				.update(workspaces)
 				.set({
-					maxStorefronts: freeLimits.storefronts,
-					maxTeamMembers: freeLimits.teamMembers,
-					features: freeLimits.features,
+					maxStorefronts: hobbyLimits.storefronts,
+					maxTeamMembers: hobbyLimits.teamMembers,
+					maxWidgets: hobbyLimits.maxWidgets,
+					maxSongs: hobbyLimits.maxSongs,
+					maxStations: hobbyLimits.maxStations,
+					features: hobbyLimits.features,
 					updatedAt: new Date(),
 				})
 				.where(eq(workspaces.ownerId, match.userId))
@@ -345,6 +351,9 @@ export const processPolarSubscriptionUpdated = inngest.createFunction(
 				.set({
 					maxStorefronts: limits.storefronts,
 					maxTeamMembers: limits.teamMembers,
+					maxWidgets: limits.maxWidgets,
+					maxSongs: limits.maxSongs,
+					maxStations: limits.maxStations,
 					features: limits.features,
 					updatedAt: new Date(),
 				})
@@ -441,25 +450,28 @@ export const promoExpirationCheck = inngest.createFunction(
 					.set({ isActive: false })
 					.where(eq(promotionalClaims.id, promo.id))
 
-				// Downgrade user to free
-				const freeLimits = TIER_LIMITS.free
+				// Downgrade user to hobby
+				const hobbyLimits = TIER_LIMITS.hobby
 				await db
 					.update(users)
 					.set({
-						subscriptionTier: "free",
+						subscriptionTier: "hobby",
 						subscriptionStatus: "active",
 						polarSubscriptionId: null,
 						updatedAt: new Date(),
 					})
 					.where(eq(users.id, promo.userId))
 
-				// Sync all owned workspaces to free limits
+				// Sync all owned workspaces to hobby limits
 				await db
 					.update(workspaces)
 					.set({
-						maxStorefronts: freeLimits.storefronts,
-						maxTeamMembers: freeLimits.teamMembers,
-						features: freeLimits.features,
+						maxStorefronts: hobbyLimits.storefronts,
+						maxTeamMembers: hobbyLimits.teamMembers,
+						maxWidgets: hobbyLimits.maxWidgets,
+						maxSongs: hobbyLimits.maxSongs,
+						maxStations: hobbyLimits.maxStations,
+						features: hobbyLimits.features,
 						updatedAt: new Date(),
 					})
 					.where(eq(workspaces.ownerId, promo.userId))
@@ -468,7 +480,7 @@ export const promoExpirationCheck = inngest.createFunction(
 				await notifyUser(
 					promo.userId,
 					"Intro offer expired",
-					"Your introductory Pro plan has ended. Upgrade to continue using Pro features."
+					"Your introductory Essentials plan has ended. Upgrade to continue using Essentials features."
 				)
 
 				// Cancel the Polar subscription if we have the ID

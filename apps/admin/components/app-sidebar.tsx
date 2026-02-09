@@ -935,6 +935,8 @@ function NormalSidebarContent({
   navGrowth,
   navOverview,
   navOperations,
+  navStore,
+  navCRM,
   navDevelopers,
   sidebarState
 }: {
@@ -942,6 +944,8 @@ function NormalSidebarContent({
   navGrowth: typeof data.navGrowth
   navOverview: typeof data.navOverview
   navOperations: typeof data.navOperations
+  navStore: typeof data.navStore
+  navCRM: typeof data.navCRM
   navDevelopers: typeof data.navDevelopers
   sidebarState: ReturnType<typeof useSidebarStateProvider>
 }) {
@@ -959,10 +963,10 @@ function NormalSidebarContent({
       </SidebarGroup>
       <NavRecent />
       <NavMain label="Overview" labelIcon={Home01Icon} items={navOverview} />
-      <NavMain label="Store" labelIcon={Building03Icon} items={data.navStore} />
+      <NavMain label="Store" labelIcon={Building03Icon} items={navStore} />
       <NavMain label="Operations" labelIcon={Layers01Icon} items={navOperations} />
       <NavMain label="Growth" labelIcon={RocketIcon} items={navGrowth} />
-      <NavMain label="CRM" labelIcon={SaleTag01Icon} items={data.navCRM} />
+      <NavMain label="CRM" labelIcon={SaleTag01Icon} items={navCRM} />
       <NavMain label="Billing" labelIcon={Invoice02Icon} items={data.navBilling} />
       <NavMain label="System" labelIcon={Settings02Icon} items={navSystem} />
       <NavMain label="Developers" labelIcon={SourceCodeIcon} items={navDevelopers} />
@@ -1003,6 +1007,10 @@ export function AppSidebar({
   // On desktop: fixed sidebar (no collapse) - same as messages layout
   const collapsible = isMobile ? "icon" : "none"
 
+  // Helper: lock a sub-item if feature is disabled
+  const lockSub = (sub: { title: string; url: string }, feature: keyof WorkspaceFeatures) =>
+    features && !features[feature] ? { ...sub, locked: true } : sub
+
   // Build dynamic Content nav items from collections
   const navGrowth = React.useMemo(() => {
     const contentItems = [
@@ -1012,20 +1020,55 @@ export function AppSidebar({
         title: c.name,
         url: `/content/collections/${c.slug}`,
       })),
-      { title: "All Collections", url: "/content/collections" },
-      { title: "Site Content", url: "/content/site-content" },
-      { title: "Media Library", url: "/content/media" },
+      lockSub({ title: "All Collections", url: "/content/collections" }, "collections"),
+      lockSub({ title: "Site Content", url: "/content/site-content" }, "siteContent"),
+      lockSub({ title: "Media Library", url: "/content/media" }, "mediaLibrary"),
     ]
 
     return data.navGrowth.map((item) => {
       if (item.title === "Content") {
         return { ...item, items: contentItems }
       }
+      if (item.title === "Marketing" && item.items) {
+        return {
+          ...item,
+          items: item.items.map((sub) => {
+            if (sub.title === "Campaigns") return lockSub(sub, "campaigns")
+            if (sub.title === "Email Templates") return lockSub(sub, "emailTemplates")
+            if (sub.title === "SEO") return lockSub(sub, "seo")
+            return sub
+          }),
+        }
+      }
       return item
     })
-  }, [collections])
+  }, [collections, features])
 
-  // Filter out Integrations link for non-owners or locked features
+  // Gate Store section items + sub-items
+  const navStore = React.useMemo(() => {
+    return data.navStore.map((item) => {
+      if (item.title === "Reviews" && features && !features.reviews) {
+        return { ...item, locked: true }
+      }
+      if (item.title === "Auctions" && features && !features.auctions) {
+        return { ...item, locked: true }
+      }
+      if (item.title === "Customers" && item.items) {
+        return {
+          ...item,
+          items: item.items.map((sub) => {
+            if (sub.title === "Segments") return lockSub(sub, "segments")
+            if (sub.title === "Loyalty & Rewards") return lockSub(sub, "loyalty")
+            if (sub.title === "Gift Cards") return lockSub(sub, "giftCards")
+            return sub
+          }),
+        }
+      }
+      return item
+    })
+  }, [features])
+
+  // Gate System section sub-items
   const navSystem = React.useMemo(() => {
     return data.navSystem.map((item) => {
       if (item.title === "Settings" && item.items) {
@@ -1034,8 +1077,11 @@ export function AppSidebar({
           items: item.items.map((sub) => {
             if (sub.title === "Integrations") {
               if (workspace?.role !== "owner") return null
-              if (features && !features.integrations) return { ...sub, locked: true }
+              return lockSub(sub, "integrations")
             }
+            if (sub.title === "Permissions") return lockSub(sub, "permissions")
+            if (sub.title === "Sessions") return lockSub(sub, "sessions")
+            if (sub.title === "Exports") return lockSub(sub, "exports")
             return sub
           }).filter(Boolean) as typeof item.items,
         }
@@ -1044,7 +1090,7 @@ export function AppSidebar({
     })
   }, [workspace?.role, features])
 
-  // Gate analytics nav items
+  // Gate Overview section (Analytics)
   const navOverview = React.useMemo(() => {
     return data.navOverview.map((item) => {
       if (item.title === "Analytics" && features && !features.analytics) {
@@ -1054,21 +1100,59 @@ export function AppSidebar({
     })
   }, [features])
 
-  // Gate automation nav item
+  // Gate Operations section
   const navOperations = React.useMemo(() => {
     return data.navOperations.map((item) => {
       if (item.title === "Automation" && features && !features.automation) {
+        return { ...item, locked: true }
+      }
+      if (item.title === "Subscriptions" && features && !features.subscriptions) {
+        return { ...item, locked: true }
+      }
+      if (item.title === "Suppliers" && features && !features.suppliers) {
+        return { ...item, locked: true }
+      }
+      if (item.title === "Shipping" && item.items) {
+        return {
+          ...item,
+          items: item.items.map((sub) => {
+            if (sub.title === "Tracking") return lockSub(sub, "tracking")
+            if (sub.title === "Pending Review") return lockSub(sub, "pendingReview")
+            return sub
+          }),
+        }
+      }
+      return item
+    })
+  }, [features])
+
+  // Gate CRM section — lock entire section if crm disabled
+  const navCRM = React.useMemo(() => {
+    return data.navCRM.map((item) => {
+      if (item.title === "Scheduling" && features && !features.scheduling) {
+        return { ...item, locked: true }
+      }
+      if (features && !features.crm && item.title !== "Scheduling") {
         return { ...item, locked: true }
       }
       return item
     })
   }, [features])
 
-  // Gate API Keys nav item
+  // Gate Developers section
   const navDevelopers = React.useMemo(() => {
     return data.navDevelopers.map((item) => {
-      if (item.title === "API Keys" && features && !features.api) {
+      if (item.title === "API Keys" && features && !features.adminApi) {
         return { ...item, locked: true }
+      }
+      if (item.title === "Developer Tools" && item.items) {
+        return {
+          ...item,
+          items: item.items.map((sub) => {
+            if (sub.title === "Webhook Events") return lockSub(sub, "webhookEvents")
+            return sub
+          }),
+        }
       }
       return item
     })
@@ -1111,7 +1195,7 @@ export function AppSidebar({
                 ) : isWorkflowMode ? (
                   <WorkflowSidebarContent />
                 ) : (
-                  <NormalSidebarContent navSystem={navSystem} navGrowth={navGrowth} navOverview={navOverview} navOperations={navOperations} navDevelopers={navDevelopers} sidebarState={sidebarState} />
+                  <NormalSidebarContent navSystem={navSystem} navGrowth={navGrowth} navOverview={navOverview} navOperations={navOperations} navStore={navStore} navCRM={navCRM} navDevelopers={navDevelopers} sidebarState={sidebarState} />
                 )}
               </SidebarContent>
               <SidebarFooter>
@@ -1139,7 +1223,7 @@ export function AppSidebar({
               ) : isWorkflowMode ? (
                 <WorkflowSidebarContent />
               ) : (
-                <NormalSidebarContent navSystem={navSystem} navGrowth={navGrowth} navOverview={navOverview} navOperations={navOperations} navDevelopers={navDevelopers} sidebarState={sidebarState} />
+                <NormalSidebarContent navSystem={navSystem} navGrowth={navGrowth} navOverview={navOverview} navOperations={navOperations} navStore={navStore} navCRM={navCRM} navDevelopers={navDevelopers} sidebarState={sidebarState} />
               )}
             </SidebarContent>
             <SidebarFooter>

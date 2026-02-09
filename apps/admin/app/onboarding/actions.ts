@@ -106,7 +106,7 @@ export async function createWorkspace(formData: FormData) {
 		.from(users)
 		.where(eq(users.id, user.id))
 		.limit(1)
-	const userTier = (dbUser?.subscriptionTier || "free") as SubscriptionTier
+	const userTier = (dbUser?.subscriptionTier || "hobby") as SubscriptionTier
 	const limits = TIER_LIMITS[userTier]
 
 	// Create workspace with limits from user's tier
@@ -227,7 +227,7 @@ export async function skipWorkspaceCreation() {
 			.from(users)
 			.where(eq(users.id, user.id))
 			.limit(1)
-		const userTier = (dbUser?.subscriptionTier || "free") as SubscriptionTier
+		const userTier = (dbUser?.subscriptionTier || "hobby") as SubscriptionTier
 		const skipLimits = TIER_LIMITS[userTier]
 
 		// Create a default workspace

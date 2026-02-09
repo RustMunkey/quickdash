@@ -1,15 +1,14 @@
 import type { Metadata } from "next"
-import { TIER_INFO, TIER_LIMITS, type SubscriptionTier, type WorkspaceFeatures } from "@quickdash/db/schema"
-import { Check, X, ArrowRight, Minus } from "lucide-react"
+import { TIER_INFO, TIER_LIMITS, type SubscriptionTier } from "@quickdash/db/schema"
+import { Check, Minus, ArrowRight } from "lucide-react"
 import Link from "next/link"
-import { PromoBanner } from "./promo-banner"
 
 export const metadata: Metadata = {
 	title: "Pricing — Quickdash",
 	description: "Simple, transparent pricing. Pick a plan that fits your business.",
 }
 
-const DISPLAY_TIERS: SubscriptionTier[] = ["free", "lite", "pro", "max"]
+const DISPLAY_TIERS: SubscriptionTier[] = ["hobby", "lite", "essentials", "pro"]
 
 const FEATURE_ROWS: {
 	label: string
@@ -37,74 +36,36 @@ const FEATURE_ROWS: {
 		type: "limit",
 		getValue: (tier) => {
 			const v = TIER_LIMITS[tier].teamMembers
-			return v === -1 ? "Unlimited" : String(v)
+			return v === -1 ? "Unlimited" : v === 0 ? "—" : String(v)
 		},
 	},
 	{
-		label: "Analytics & Reports",
-		type: "feature",
-		getValue: (tier) => TIER_LIMITS[tier].features.analytics,
+		label: "Dashboard Widgets",
+		type: "limit",
+		getValue: (tier) => {
+			const v = TIER_LIMITS[tier].maxWidgets
+			return v === -1 ? "Unlimited" : String(v)
+		},
 	},
-	{
-		label: "Integrations",
-		type: "feature",
-		getValue: (tier) => TIER_LIMITS[tier].features.integrations,
-	},
-	{
-		label: "API Access",
-		type: "feature",
-		getValue: (tier) => TIER_LIMITS[tier].features.api,
-	},
-	{
-		label: "Automation & Workflows",
-		type: "feature",
-		getValue: (tier) => TIER_LIMITS[tier].features.automation,
-	},
-	{
-		label: "White Label",
-		type: "feature",
-		getValue: (tier) => TIER_LIMITS[tier].features.whiteLabel,
-	},
-	{
-		label: "Custom Domains",
-		type: "feature",
-		getValue: (tier) => TIER_LIMITS[tier].features.customDomain,
-	},
-	{
-		label: "Products & Inventory",
-		type: "feature",
-		getValue: () => true,
-	},
-	{
-		label: "Orders & Fulfillment",
-		type: "feature",
-		getValue: () => true,
-	},
-	{
-		label: "Customer Management",
-		type: "feature",
-		getValue: () => true,
-	},
-	{
-		label: "Storefront API (read-only)",
-		type: "feature",
-		getValue: () => true,
-	},
-	{
-		label: "Email Support",
-		type: "feature",
-		getValue: () => true,
-	},
-	{
-		label: "Priority Support",
-		type: "feature",
-		getValue: (tier) => tier === "pro" || tier === "max",
-	},
-	{
-		label: "Dedicated Account Manager",
-		type: "feature",
-		getValue: (tier) => tier === "max",
-	},
+	{ label: "Analytics & Reports", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.analytics },
+	{ label: "Reviews", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.reviews },
+	{ label: "Auctions", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.auctions },
+	{ label: "Segments & Loyalty", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.segments },
+	{ label: "Subscriptions", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.subscriptions },
+	{ label: "Automation & Workflows", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.automation },
+	{ label: "CRM (Contacts, Deals, Tasks)", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.crm },
+	{ label: "Inbound Calling", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.inboundCalling },
+	{ label: "Outbound Calling", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.outboundCalling },
+	{ label: "Integrations", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.integrations },
+	{ label: "Admin API", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.adminApi },
+	{ label: "White Label", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.whiteLabel },
+	{ label: "Custom Domains", type: "feature", getValue: (tier) => TIER_LIMITS[tier].features.customDomain },
+	{ label: "Products & Inventory", type: "feature", getValue: () => true },
+	{ label: "Orders & Fulfillment", type: "feature", getValue: () => true },
+	{ label: "Customer Management", type: "feature", getValue: () => true },
+	{ label: "Storefront API", type: "feature", getValue: () => true },
+	{ label: "Email Support", type: "feature", getValue: () => true },
+	{ label: "Priority Support", type: "feature", getValue: (tier) => tier === "essentials" || tier === "pro" },
 ]
 
 export default function PricingPage() {
@@ -143,18 +104,13 @@ export default function PricingPage() {
 				</p>
 			</section>
 
-			{/* Promo Banner */}
-			<section className="mx-auto max-w-6xl px-6 pb-8">
-				<PromoBanner />
-			</section>
-
 			{/* Pricing Cards */}
 			<section className="mx-auto max-w-6xl px-6 pb-16">
 				<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 					{DISPLAY_TIERS.map((tier) => {
 						const info = TIER_INFO[tier]
 						const limits = TIER_LIMITS[tier]
-						const isPopular = tier === "pro"
+						const isPopular = tier === "essentials"
 
 						return (
 							<div
@@ -199,7 +155,7 @@ export default function PricingPage() {
 										<span>
 											{limits.storefronts === -1
 												? "Unlimited storefronts"
-												: `${limits.storefronts} storefront${limits.storefronts === 1 ? "" : "s"} / workspace`}
+												: `${limits.storefronts} storefront${limits.storefronts === 1 ? "" : "s"}`}
 										</span>
 									</li>
 									<li className="flex items-center gap-2">
@@ -207,37 +163,52 @@ export default function PricingPage() {
 										<span>
 											{limits.teamMembers === -1
 												? "Unlimited team members"
-												: `${limits.teamMembers} team members / workspace`}
+												: limits.teamMembers === 0
+													? "Solo (no team members)"
+													: `${limits.teamMembers} team members`}
 										</span>
 									</li>
-									{(Object.entries(limits.features) as [keyof WorkspaceFeatures, boolean][]).map(
-										([key, enabled]) =>
-											enabled && (
-												<li key={key} className="flex items-center gap-2">
-													<Check className="size-4 text-primary shrink-0" />
-													<span>
-														{key === "api"
-															? "API Access"
-															: key === "whiteLabel"
-																? "White Label"
-																: key === "customDomain"
-																	? "Custom Domains"
-																	: key.charAt(0).toUpperCase() + key.slice(1)}
-													</span>
-												</li>
-											)
+									{tier !== "hobby" && (
+										<li className="flex items-center gap-2">
+											<Check className="size-4 text-primary shrink-0" />
+											<span>Analytics & Reports</span>
+										</li>
+									)}
+									{(tier === "essentials" || tier === "pro") && (
+										<>
+											<li className="flex items-center gap-2">
+												<Check className="size-4 text-primary shrink-0" />
+												<span>Integrations & Admin API</span>
+											</li>
+											<li className="flex items-center gap-2">
+												<Check className="size-4 text-primary shrink-0" />
+												<span>Advanced Commerce</span>
+											</li>
+										</>
+									)}
+									{tier === "pro" && (
+										<>
+											<li className="flex items-center gap-2">
+												<Check className="size-4 text-primary shrink-0" />
+												<span>CRM & Automation</span>
+											</li>
+											<li className="flex items-center gap-2">
+												<Check className="size-4 text-primary shrink-0" />
+												<span>White Label</span>
+											</li>
+										</>
 									)}
 								</ul>
 
 								<Link
-									href={tier === "free" ? "/signup" : "/signup"}
+									href="/signup"
 									className={`inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-colors ${
 										isPopular
 											? "bg-primary text-primary-foreground hover:bg-primary/90"
 											: "border bg-background hover:bg-accent hover:text-accent-foreground"
 									}`}
 								>
-									{tier === "free" ? "Get Started" : "Start Free Trial"}
+									{tier === "hobby" ? "Get Started Free" : `Get ${info.name}`}
 									<ArrowRight className="size-3.5" />
 								</Link>
 							</div>
@@ -245,11 +216,11 @@ export default function PricingPage() {
 					})}
 				</div>
 
-				{/* Scale / Enterprise */}
+				{/* Teams / Enterprise */}
 				<div className="mt-8 rounded-xl border bg-card p-6 text-center">
-					<h3 className="text-lg font-semibold">Scale</h3>
+					<h3 className="text-lg font-semibold">Teams</h3>
 					<p className="mt-1 text-sm text-muted-foreground">
-						Need custom limits, SLAs, or dedicated infrastructure? Let&apos;s talk.
+						Need custom limits, per-seat pricing, or dedicated infrastructure? Let&apos;s talk.
 					</p>
 					<a
 						href="mailto:admin@quickdash.net"
@@ -333,7 +304,7 @@ export default function PricingPage() {
 						/>
 						<FaqItem
 							question="Is there a free trial?"
-							answer="The Free plan is always free — no credit card required. You can explore the platform and upgrade when you're ready for more features."
+							answer="The Hobby plan is always free — no credit card required. You can explore the platform and upgrade when you're ready for more features."
 						/>
 						<FaqItem
 							question="What payment methods do you accept?"
@@ -349,7 +320,7 @@ export default function PricingPage() {
 						/>
 						<FaqItem
 							question="Do limits apply per workspace or per account?"
-							answer="Workspace count is per account. Storefronts and team members are per workspace. For example, on the Pro plan you can have up to 10 workspaces, and each workspace can have up to 10 storefronts and 100 team members."
+							answer="Workspace count is per account. Storefronts and team members are per workspace. For example, on the Pro plan you can have up to 4 workspaces, and each workspace can have up to 5 storefronts and 50 team members."
 						/>
 					</div>
 				</div>
