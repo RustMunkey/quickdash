@@ -4,6 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 import { db } from "@quickdash/db/client";
 import { eq, count } from "@quickdash/db/drizzle";
 import { users, sessions, accounts, verifications, auditLog } from "@quickdash/db/schema";
+import { Resend } from "resend";
 
 export const auth = betterAuth({
 	baseURL: process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3001",
@@ -129,7 +130,16 @@ export const auth = betterAuth({
 	},
 	emailAndPassword: {
 		enabled: true,
-		requireEmailVerification: true,
+		requireEmailVerification: false,
+		sendResetPassword: async ({ user, url }) => {
+			const resend = new Resend(process.env.RESEND_API_KEY);
+			await resend.emails.send({
+				from: "Quickdash <noreply@quickdash.net>",
+				to: user.email,
+				subject: "Reset your password",
+				html: `<p>Click the link below to reset your password:</p><p><a href="${url}">${url}</a></p>`,
+			});
+		},
 	},
 	plugins: [nextCookies()],
 });
