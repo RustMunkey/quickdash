@@ -104,7 +104,20 @@ export async function getActiveWorkspace(): Promise<WorkspaceContext | null> {
 		.where(eq(workspaces.id, pref.activeWorkspaceId))
 		.limit(1)
 
-	if (!result) return null
+	if (!result) {
+		// Stored workspace no longer exists or user lost access — fall back to first available
+		const fallback = await getUserWorkspaces()
+		if (fallback.length > 0) {
+			await setActiveWorkspace(fallback[0].id)
+			return getActiveWorkspace()
+		}
+		// No workspaces at all — clear stale preference
+		await db
+			.update(userWorkspacePreferences)
+			.set({ activeWorkspaceId: null, updatedAt: new Date() })
+			.where(eq(userWorkspacePreferences.userId, user.id))
+		return null
+	}
 
 	const ownerTier = (result.ownerTier || "hobby") as SubscriptionTier
 	const tierLimits = TIER_LIMITS[ownerTier]
