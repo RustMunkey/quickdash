@@ -24,7 +24,7 @@ export function ModeBanner({ initialMaintenanceMode, initialSandboxMode }: { ini
   if (!maintenanceMode && !sandboxMode) return null
 
   return (
-    <div className="flex flex-col">
+    <div className="sticky top-0 z-[60] flex flex-col w-full">
       {sandboxMode && (
         <div className="flex items-center justify-between bg-amber-500/15 border-b border-amber-500/30 px-4 py-1.5 text-sm">
           <div className="flex items-center gap-2">

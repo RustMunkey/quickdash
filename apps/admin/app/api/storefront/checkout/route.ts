@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server"
 import { db } from "@quickdash/db/client"
 import { eq, and, inArray } from "@quickdash/db/drizzle"
 import { orders, orderItems, products, productVariants, addresses, users } from "@quickdash/db/schema"
-import { withStorefrontAuth, storefrontError, handleCorsOptions, type StorefrontContext } from "@/lib/storefront-auth"
+import { withStorefrontAuth, storefrontError, handleCorsOptions, getWorkspaceSiteMode, type StorefrontContext } from "@/lib/storefront-auth"
 import { generateOrderNumber } from "@/lib/order-utils"
 
 type CartItem = {
@@ -33,6 +33,12 @@ type CheckoutInput = {
 }
 
 async function handlePost(request: NextRequest, storefront: StorefrontContext) {
+	// Check workspace mode
+	const siteMode = await getWorkspaceSiteMode(storefront.workspaceId)
+	if (siteMode.maintenance) {
+		return storefrontError("Store is currently in maintenance mode", 503)
+	}
+
 	let body: CheckoutInput
 	try {
 		body = await request.json()
@@ -178,6 +184,7 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 				...metadata,
 				storefrontId: storefront.id,
 				storefrontName: storefront.name,
+				...(siteMode.sandbox ? { sandbox: true } : {}),
 			},
 		})
 		.returning()

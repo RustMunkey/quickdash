@@ -55,6 +55,10 @@ export function NavMain({
     if (isMobile) setOpenMobile(false)
   }
 
+  // Hide entire section if all items are locked
+  const hasVisibleItems = items.some((item) => !item.locked)
+  if (!hasVisibleItems) return null
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>

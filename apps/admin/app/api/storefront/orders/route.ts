@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server"
 import { db } from "@quickdash/db/client"
 import { eq, and, desc, sql } from "@quickdash/db/drizzle"
 import { orders, orderItems, payments } from "@quickdash/db/schema"
-import { withStorefrontAuth, storefrontError, storefrontJson, handleCorsOptions, type StorefrontContext } from "@/lib/storefront-auth"
+import { withStorefrontAuth, storefrontError, storefrontJson, handleCorsOptions, getWorkspaceSiteMode, type StorefrontContext } from "@/lib/storefront-auth"
 import { generateOrderNumber, buildOrderConfirmationEmail } from "@/lib/order-utils"
 import { sendEmail } from "@/lib/send-email"
 
@@ -132,6 +132,12 @@ type OrderCreateInput = {
 }
 
 async function handlePost(request: NextRequest, storefront: StorefrontContext) {
+	// Check workspace mode
+	const siteMode = await getWorkspaceSiteMode(storefront.workspaceId)
+	if (siteMode.maintenance) {
+		return storefrontError("Store is currently in maintenance mode", 503)
+	}
+
 	let body: OrderCreateInput
 	try {
 		body = await request.json()
@@ -176,6 +182,7 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 				},
 				shippingAddress: shippingAddress || null,
 				discountCode: discountCode || null,
+				...(siteMode.sandbox ? { sandbox: true } : {}),
 			},
 		})
 		.returning()

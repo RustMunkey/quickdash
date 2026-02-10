@@ -41,3 +41,6 @@ packages/db/drizzle/
 
 # backups
 backups/
+
+# claude
+.claude

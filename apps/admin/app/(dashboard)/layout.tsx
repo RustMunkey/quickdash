@@ -140,6 +140,7 @@ export default async function DashboardLayout({
       storeName={workspaceStoreName}
       tagline={workspaceTagline}
     />
+    <ModeBanner initialMaintenanceMode={workspaceMaintenanceMode} initialSandboxMode={workspaceSandboxMode} />
     <PusherProvider
       pusherKey={process.env.NEXT_PUBLIC_PUSHER_KEY}
       pusherCluster={process.env.NEXT_PUBLIC_PUSHER_CLUSTER}
@@ -196,7 +197,6 @@ export default async function DashboardLayout({
                           </div>
                           <HeaderToolbar storefrontUrl={workspaceCustomDomain || workspaceStorefrontUrl} initialMaintenanceMode={workspaceMaintenanceMode} initialSandboxMode={workspaceSandboxMode} />
                         </header>
-                        <ModeBanner initialMaintenanceMode={workspaceMaintenanceMode} initialSandboxMode={workspaceSandboxMode} />
                         {children}
                       </BreadcrumbProvider>
                     </SidebarInset>

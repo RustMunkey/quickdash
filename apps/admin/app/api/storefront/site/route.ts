@@ -74,6 +74,8 @@ const PUBLIC_SETTING_KEYS = [
 	// Maintenance
 	"maintenance_mode",
 	"maintenance_message",
+	// Sandbox
+	"sandbox_mode",
 ]
 
 // Currency symbol mapping
@@ -238,6 +240,11 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 			maintenance: {
 				enabled: s.maintenance_mode === "true",
 				message: s.maintenance_message || "We'll be back soon.",
+			},
+
+			// Sandbox mode (test payments, no real charges)
+			sandbox: {
+				enabled: s.sandbox_mode === "true",
 			},
 
 			// Payment methods (which providers are configured)

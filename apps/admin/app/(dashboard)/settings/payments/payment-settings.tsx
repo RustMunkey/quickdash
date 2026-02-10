@@ -174,8 +174,38 @@ const currencies = [
 
 // --- Main component ---
 
+function WebhookUrl({ provider, workspaceId }: { provider: string; workspaceId: string }) {
+	const url = `${typeof window !== "undefined" ? window.location.origin : "https://app.quickdash.net"}/api/webhooks/${provider}/${workspaceId}`
+	const [copied, setCopied] = useState(false)
+
+	return (
+		<div className="flex items-center gap-2 mt-2">
+			<div className="flex-1 min-w-0">
+				<Label className="text-xs text-muted-foreground">Webhook URL</Label>
+				<div className="flex items-center gap-1.5 mt-0.5">
+					<code className="text-[11px] bg-muted px-2 py-1 rounded truncate block flex-1 min-w-0">{url}</code>
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-7 px-2 shrink-0 text-xs"
+						onClick={() => {
+							navigator.clipboard.writeText(url)
+							setCopied(true)
+							toast.success("Webhook URL copied")
+							setTimeout(() => setCopied(false), 2000)
+						}}
+					>
+						{copied ? "Copied" : "Copy"}
+					</Button>
+				</div>
+			</div>
+		</div>
+	)
+}
+
 export function PaymentSettings({
 	settings,
+	workspaceId,
 	workspaceStripe,
 	workspacePayPal,
 	workspacePolar,
@@ -184,6 +214,7 @@ export function PaymentSettings({
 	workspaceSquare,
 }: {
 	settings: Setting[]
+	workspaceId: string
 	workspaceStripe: WorkspaceStripeConfig
 	workspacePayPal: WorkspacePayPalConfig
 	workspacePolar: WorkspacePolarConfig
@@ -378,6 +409,7 @@ export function PaymentSettings({
 						<p className="text-xs text-muted-foreground">
 							Get your API keys from <code className="bg-muted px-1 py-0.5 rounded">dashboard.stripe.com/apikeys</code>. Toggle between test and live modes in Stripe to get each set of keys.
 						</p>
+						<WebhookUrl provider="stripe" workspaceId={workspaceId} />
 					</div>
 					{(stripeSecretKey || stripeTestSecretKey) && (
 						<div className="pt-2 border-t">
@@ -445,6 +477,7 @@ export function PaymentSettings({
 						<p className="text-xs text-muted-foreground">
 							Create credentials at <code className="bg-muted px-1 py-0.5 rounded">developer.paypal.com</code>. Create separate apps for sandbox and live.
 						</p>
+						<WebhookUrl provider="paypal" workspaceId={workspaceId} />
 					</div>
 					{(paypalClientId || paypalTestClientId) && (
 						<div className="pt-2 border-t">
@@ -515,6 +548,7 @@ export function PaymentSettings({
 								: "Payments go directly to your Polar account."
 							}
 						</p>
+						<WebhookUrl provider="polar" workspaceId={workspaceId} />
 					</div>
 					{(polarAccessToken || polarTestAccessToken) && (
 						<div className="pt-2 border-t">

@@ -1,6 +1,6 @@
 import { db } from "@quickdash/db/client"
-import { eq, and } from "@quickdash/db/drizzle"
-import { storefronts, workspaces, users } from "@quickdash/db/schema"
+import { eq, and, inArray } from "@quickdash/db/drizzle"
+import { storefronts, workspaces, users, storeSettings } from "@quickdash/db/schema"
 import { type NextRequest } from "next/server"
 
 export type StorefrontContext = {
@@ -154,6 +154,30 @@ function addCorsHeaders(response: Response, origin?: string | null): Response {
 		statusText: response.statusText,
 		headers: newHeaders,
 	})
+}
+
+/**
+ * Get workspace site mode (maintenance/sandbox/live)
+ */
+export async function getWorkspaceSiteMode(workspaceId: string): Promise<{
+	maintenance: boolean
+	sandbox: boolean
+}> {
+	const settings = await db
+		.select({ key: storeSettings.key, value: storeSettings.value })
+		.from(storeSettings)
+		.where(
+			and(
+				eq(storeSettings.workspaceId, workspaceId),
+				inArray(storeSettings.key, ["maintenance_mode", "sandbox_mode"])
+			)
+		)
+
+	const s = (key: string) => settings.find((x) => x.key === key)?.value
+	return {
+		maintenance: s("maintenance_mode") === "true",
+		sandbox: s("sandbox_mode") === "true",
+	}
 }
 
 /**
