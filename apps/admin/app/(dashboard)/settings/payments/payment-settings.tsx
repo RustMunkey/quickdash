@@ -100,6 +100,9 @@ type WorkspaceStripeConfig = {
 	secretKey: string
 	publishableKey: string
 	webhookSecret: string
+	testSecretKey: string
+	testPublishableKey: string
+	testWebhookSecret: string
 	testMode: boolean
 }
 
@@ -107,6 +110,8 @@ type WorkspacePayPalConfig = {
 	hasConfig: boolean
 	clientId: string
 	clientSecret: string
+	testClientId: string
+	testClientSecret: string
 	testMode: boolean
 }
 
@@ -114,6 +119,8 @@ type WorkspacePolarConfig = {
 	hasConfig: boolean
 	accessToken: string
 	webhookSecret: string
+	testAccessToken: string
+	testWebhookSecret: string
 	testMode: boolean
 }
 
@@ -136,6 +143,9 @@ type WorkspaceSquareConfig = {
 	applicationId: string
 	accessToken: string
 	locationId: string
+	testApplicationId: string
+	testAccessToken: string
+	testLocationId: string
 	testMode: boolean
 }
 
@@ -182,30 +192,46 @@ export function PaymentSettings({
 	workspaceSquare: WorkspaceSquareConfig
 }) {
 	// --- Provider state ---
+	// Stripe
 	const [stripeSecretKey, setStripeSecretKey] = useState(workspaceStripe.secretKey)
 	const [stripePublishableKey, setStripePublishableKey] = useState(workspaceStripe.publishableKey)
 	const [stripeWebhookSecret, setStripeWebhookSecret] = useState(workspaceStripe.webhookSecret)
+	const [stripeTestSecretKey, setStripeTestSecretKey] = useState(workspaceStripe.testSecretKey)
+	const [stripeTestPublishableKey, setStripeTestPublishableKey] = useState(workspaceStripe.testPublishableKey)
+	const [stripeTestWebhookSecret, setStripeTestWebhookSecret] = useState(workspaceStripe.testWebhookSecret)
 	const [stripeTestMode, setStripeTestMode] = useState(workspaceStripe.testMode)
 
+	// PayPal
 	const [paypalClientId, setPaypalClientId] = useState(workspacePayPal.clientId)
 	const [paypalClientSecret, setPaypalClientSecret] = useState(workspacePayPal.clientSecret)
+	const [paypalTestClientId, setPaypalTestClientId] = useState(workspacePayPal.testClientId)
+	const [paypalTestClientSecret, setPaypalTestClientSecret] = useState(workspacePayPal.testClientSecret)
 	const [paypalTestMode, setPaypalTestMode] = useState(workspacePayPal.testMode)
 
+	// Polar
 	const [polarAccessToken, setPolarAccessToken] = useState(workspacePolar.accessToken)
 	const [polarWebhookSecret, setPolarWebhookSecret] = useState(workspacePolar.webhookSecret)
+	const [polarTestAccessToken, setPolarTestAccessToken] = useState(workspacePolar.testAccessToken)
+	const [polarTestWebhookSecret, setPolarTestWebhookSecret] = useState(workspacePolar.testWebhookSecret)
 	const [polarTestMode, setPolarTestMode] = useState(workspacePolar.testMode)
 
+	// Reown
 	const [reownProjectId, setReownProjectId] = useState(workspaceReown.projectId)
 	const [reownChains, setReownChains] = useState<string[]>(workspaceReown.chains)
 
+	// Shopify
 	const [shopifyDomain, setShopifyDomain] = useState(workspaceShopify.storeDomain)
 	const [shopifyStorefrontToken, setShopifyStorefrontToken] = useState(workspaceShopify.storefrontToken)
 	const [shopifyAdminToken, setShopifyAdminToken] = useState(workspaceShopify.adminToken)
 	const [shopifyTestMode, setShopifyTestMode] = useState(workspaceShopify.testMode)
 
+	// Square
 	const [squareAppId, setSquareAppId] = useState(workspaceSquare.applicationId)
 	const [squareAccessToken, setSquareAccessToken] = useState(workspaceSquare.accessToken)
 	const [squareLocationId, setSquareLocationId] = useState(workspaceSquare.locationId)
+	const [squareTestAppId, setSquareTestAppId] = useState(workspaceSquare.testApplicationId)
+	const [squareTestAccessToken, setSquareTestAccessToken] = useState(workspaceSquare.testAccessToken)
+	const [squareTestLocationId, setSquareTestLocationId] = useState(workspaceSquare.testLocationId)
 	const [squareTestMode, setSquareTestMode] = useState(workspaceSquare.testMode)
 
 	// --- Payment method toggles ---
@@ -291,50 +317,75 @@ export function PaymentSettings({
 				<IntegrationCard
 					name="Stripe"
 					description="Credit card payments, Apple Pay, Google Pay, and international payment methods."
-					connected={!!stripeSecretKey}
+					connected={!!(stripeTestMode ? stripeTestSecretKey : stripeSecretKey)}
 					onSave={async () => {
 						await saveWorkspaceStripeConfig({
 							secretKey: stripeSecretKey,
 							publishableKey: stripePublishableKey,
 							webhookSecret: stripeWebhookSecret,
+							testSecretKey: stripeTestSecretKey,
+							testPublishableKey: stripeTestPublishableKey,
+							testWebhookSecret: stripeTestWebhookSecret,
 							testMode: stripeTestMode,
 						})
 					}}
 				>
 					<div className="space-y-4">
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-							<div className="space-y-2">
-								<Label>Secret Key</Label>
-								<Input type="password" value={stripeSecretKey} onChange={(e) => setStripeSecretKey(e.target.value)} placeholder="sk_live_... or sk_test_..." />
-								<p className="text-xs text-muted-foreground">Server-side key for processing payments.</p>
-							</div>
-							<div className="space-y-2">
-								<Label>Publishable Key</Label>
-								<Input value={stripePublishableKey} onChange={(e) => setStripePublishableKey(e.target.value)} placeholder="pk_live_... or pk_test_..." />
-								<p className="text-xs text-muted-foreground">Client-side key for Stripe Elements.</p>
-							</div>
-						</div>
-						<div className="space-y-2">
-							<Label>Webhook Secret</Label>
-							<Input type="password" value={stripeWebhookSecret} onChange={(e) => setStripeWebhookSecret(e.target.value)} placeholder="whsec_..." />
-							<p className="text-xs text-muted-foreground">For verifying webhook signatures from Stripe.</p>
-						</div>
 						<div className="flex items-center justify-between">
 							<div>
 								<Label>Test Mode</Label>
-								<p className="text-xs text-muted-foreground">Use Stripe test keys for development</p>
+								<p className="text-xs text-muted-foreground">
+									{stripeTestMode ? "Using test keys — no real charges" : "Using live keys — real payments"}
+								</p>
 							</div>
 							<Switch checked={stripeTestMode} onCheckedChange={setStripeTestMode} />
 						</div>
+
+						<div className="space-y-3">
+							<p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+								{stripeTestMode ? "Test Credentials (active)" : "Live Credentials (active)"}
+							</p>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label>Secret Key</Label>
+									<Input
+										type="password"
+										value={stripeTestMode ? stripeTestSecretKey : stripeSecretKey}
+										onChange={(e) => stripeTestMode ? setStripeTestSecretKey(e.target.value) : setStripeSecretKey(e.target.value)}
+										placeholder={stripeTestMode ? "sk_test_..." : "sk_live_..."}
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label>Publishable Key</Label>
+									<Input
+										value={stripeTestMode ? stripeTestPublishableKey : stripePublishableKey}
+										onChange={(e) => stripeTestMode ? setStripeTestPublishableKey(e.target.value) : setStripePublishableKey(e.target.value)}
+										placeholder={stripeTestMode ? "pk_test_..." : "pk_live_..."}
+									/>
+								</div>
+							</div>
+							<div className="space-y-2">
+								<Label>Webhook Secret</Label>
+								<Input
+									type="password"
+									value={stripeTestMode ? stripeTestWebhookSecret : stripeWebhookSecret}
+									onChange={(e) => stripeTestMode ? setStripeTestWebhookSecret(e.target.value) : setStripeWebhookSecret(e.target.value)}
+									placeholder="whsec_..."
+								/>
+							</div>
+						</div>
+
 						<p className="text-xs text-muted-foreground">
-							Get your API keys from <code className="bg-muted px-1 py-0.5 rounded">dashboard.stripe.com/apikeys</code>. Payments go directly to your Stripe account.
+							Get your API keys from <code className="bg-muted px-1 py-0.5 rounded">dashboard.stripe.com/apikeys</code>. Toggle between test and live modes in Stripe to get each set of keys.
 						</p>
 					</div>
-					{stripeSecretKey && (
+					{(stripeSecretKey || stripeTestSecretKey) && (
 						<div className="pt-2 border-t">
 							<Button variant="destructive" size="sm" onClick={async () => {
 								await deleteWorkspaceStripeConfig()
-								setStripeSecretKey(""); setStripePublishableKey(""); setStripeWebhookSecret(""); setStripeTestMode(true)
+								setStripeSecretKey(""); setStripePublishableKey(""); setStripeWebhookSecret("")
+								setStripeTestSecretKey(""); setStripeTestPublishableKey(""); setStripeTestWebhookSecret("")
+								setStripeTestMode(true)
 								toast.success("Stripe config removed")
 							}}>Remove Stripe Config</Button>
 						</div>
@@ -345,42 +396,63 @@ export function PaymentSettings({
 				<IntegrationCard
 					name="PayPal"
 					description="PayPal checkout, Venmo, and Pay Later installment payments."
-					connected={!!paypalClientId && !!paypalClientSecret}
+					connected={!!(paypalTestMode ? (paypalTestClientId && paypalTestClientSecret) : (paypalClientId && paypalClientSecret))}
 					onSave={async () => {
 						await saveWorkspacePayPalConfig({
 							clientId: paypalClientId,
 							clientSecret: paypalClientSecret,
+							testClientId: paypalTestClientId,
+							testClientSecret: paypalTestClientSecret,
 							testMode: paypalTestMode,
 						})
 					}}
 				>
 					<div className="space-y-4">
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-							<div className="space-y-2">
-								<Label>Client ID</Label>
-								<Input value={paypalClientId} onChange={(e) => setPaypalClientId(e.target.value)} placeholder="AV..." />
-							</div>
-							<div className="space-y-2">
-								<Label>Client Secret</Label>
-								<Input type="password" value={paypalClientSecret} onChange={(e) => setPaypalClientSecret(e.target.value)} />
-							</div>
-						</div>
 						<div className="flex items-center justify-between">
 							<div>
 								<Label>Sandbox Mode</Label>
-								<p className="text-xs text-muted-foreground">Test transactions only</p>
+								<p className="text-xs text-muted-foreground">
+									{paypalTestMode ? "Using sandbox credentials — no real charges" : "Using live credentials — real payments"}
+								</p>
 							</div>
 							<Switch checked={paypalTestMode} onCheckedChange={setPaypalTestMode} />
 						</div>
+
+						<div className="space-y-3">
+							<p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+								{paypalTestMode ? "Sandbox Credentials (active)" : "Live Credentials (active)"}
+							</p>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label>Client ID</Label>
+									<Input
+										value={paypalTestMode ? paypalTestClientId : paypalClientId}
+										onChange={(e) => paypalTestMode ? setPaypalTestClientId(e.target.value) : setPaypalClientId(e.target.value)}
+										placeholder="AV..."
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label>Client Secret</Label>
+									<Input
+										type="password"
+										value={paypalTestMode ? paypalTestClientSecret : paypalClientSecret}
+										onChange={(e) => paypalTestMode ? setPaypalTestClientSecret(e.target.value) : setPaypalClientSecret(e.target.value)}
+									/>
+								</div>
+							</div>
+						</div>
+
 						<p className="text-xs text-muted-foreground">
-							Create credentials at <code className="bg-muted px-1 py-0.5 rounded">developer.paypal.com</code>. Payments go directly to your PayPal account.
+							Create credentials at <code className="bg-muted px-1 py-0.5 rounded">developer.paypal.com</code>. Create separate apps for sandbox and live.
 						</p>
 					</div>
-					{paypalClientId && (
+					{(paypalClientId || paypalTestClientId) && (
 						<div className="pt-2 border-t">
 							<Button variant="destructive" size="sm" onClick={async () => {
 								await deleteWorkspacePayPalConfig()
-								setPaypalClientId(""); setPaypalClientSecret(""); setPaypalTestMode(true)
+								setPaypalClientId(""); setPaypalClientSecret("")
+								setPaypalTestClientId(""); setPaypalTestClientSecret("")
+								setPaypalTestMode(true)
 								toast.success("PayPal config removed")
 							}}>Remove PayPal Config</Button>
 						</div>
@@ -391,40 +463,66 @@ export function PaymentSettings({
 				<IntegrationCard
 					name="Polar"
 					description="Fiat payment processing for one-time orders and subscriptions."
-					connected={!!polarAccessToken}
+					connected={!!(polarTestMode ? polarTestAccessToken : polarAccessToken)}
 					onSave={async () => {
 						await saveWorkspacePolarConfig({
 							accessToken: polarAccessToken,
 							webhookSecret: polarWebhookSecret,
+							testAccessToken: polarTestAccessToken,
+							testWebhookSecret: polarTestWebhookSecret,
 							testMode: polarTestMode,
 						})
 					}}
 				>
 					<div className="space-y-4">
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-							<div className="space-y-2">
-								<Label>Access Token</Label>
-								<Input type="password" value={polarAccessToken} onChange={(e) => setPolarAccessToken(e.target.value)} />
-							</div>
-							<div className="space-y-2">
-								<Label>Webhook Secret</Label>
-								<Input type="password" value={polarWebhookSecret} onChange={(e) => setPolarWebhookSecret(e.target.value)} />
-							</div>
-						</div>
 						<div className="flex items-center justify-between">
 							<div>
-								<Label>Test Mode</Label>
-								<p className="text-xs text-muted-foreground">Sandbox transactions only</p>
+								<Label>Sandbox Mode</Label>
+								<p className="text-xs text-muted-foreground">
+									{polarTestMode ? "Using sandbox credentials — no real charges" : "Using production credentials — real payments"}
+								</p>
 							</div>
 							<Switch checked={polarTestMode} onCheckedChange={setPolarTestMode} />
 						</div>
-						<p className="text-xs text-muted-foreground">Payments go directly to your Polar account.</p>
+
+						<div className="space-y-3">
+							<p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+								{polarTestMode ? "Sandbox Credentials (active)" : "Production Credentials (active)"}
+							</p>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label>Access Token</Label>
+									<Input
+										type="password"
+										value={polarTestMode ? polarTestAccessToken : polarAccessToken}
+										onChange={(e) => polarTestMode ? setPolarTestAccessToken(e.target.value) : setPolarAccessToken(e.target.value)}
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label>Webhook Secret</Label>
+									<Input
+										type="password"
+										value={polarTestMode ? polarTestWebhookSecret : polarWebhookSecret}
+										onChange={(e) => polarTestMode ? setPolarTestWebhookSecret(e.target.value) : setPolarWebhookSecret(e.target.value)}
+									/>
+								</div>
+							</div>
+						</div>
+
+						<p className="text-xs text-muted-foreground">
+							{polarTestMode
+								? <>Get sandbox credentials from <code className="bg-muted px-1 py-0.5 rounded">sandbox.polar.sh</code>.</>
+								: "Payments go directly to your Polar account."
+							}
+						</p>
 					</div>
-					{polarAccessToken && (
+					{(polarAccessToken || polarTestAccessToken) && (
 						<div className="pt-2 border-t">
 							<Button variant="destructive" size="sm" onClick={async () => {
 								await deleteWorkspacePolarConfig()
-								setPolarAccessToken(""); setPolarWebhookSecret(""); setPolarTestMode(true)
+								setPolarAccessToken(""); setPolarWebhookSecret("")
+								setPolarTestAccessToken(""); setPolarTestWebhookSecret("")
+								setPolarTestMode(true)
 								toast.success("Polar config removed")
 							}}>Remove Polar Config</Button>
 						</div>
@@ -544,48 +642,75 @@ export function PaymentSettings({
 				<IntegrationCard
 					name="Square"
 					description="In-person and online payments with Square checkout links."
-					connected={!!squareAccessToken && !!squareLocationId}
+					connected={!!(squareTestMode ? (squareTestAccessToken && squareTestAppId) : (squareAccessToken && squareAppId))}
 					onSave={async () => {
 						await saveWorkspaceSquareConfig({
 							applicationId: squareAppId,
 							accessToken: squareAccessToken,
 							locationId: squareLocationId,
+							testApplicationId: squareTestAppId,
+							testAccessToken: squareTestAccessToken,
+							testLocationId: squareTestLocationId,
 							testMode: squareTestMode,
 						})
 					}}
 				>
 					<div className="space-y-4">
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-							<div className="space-y-2">
-								<Label>Application ID</Label>
-								<Input value={squareAppId} onChange={(e) => setSquareAppId(e.target.value)} placeholder="sq0idp-..." />
-							</div>
-							<div className="space-y-2">
-								<Label>Access Token</Label>
-								<Input type="password" value={squareAccessToken} onChange={(e) => setSquareAccessToken(e.target.value)} placeholder="EAAAl..." />
-							</div>
-						</div>
-						<div className="space-y-2">
-							<Label>Location ID</Label>
-							<Input value={squareLocationId} onChange={(e) => setSquareLocationId(e.target.value)} placeholder="L..." />
-							<p className="text-xs text-muted-foreground">From Square Dashboard &rarr; Locations.</p>
-						</div>
 						<div className="flex items-center justify-between">
 							<div>
 								<Label>Sandbox Mode</Label>
-								<p className="text-xs text-muted-foreground">Test transactions only</p>
+								<p className="text-xs text-muted-foreground">
+									{squareTestMode ? "Using sandbox credentials — no real charges" : "Using live credentials — real payments"}
+								</p>
 							</div>
 							<Switch checked={squareTestMode} onCheckedChange={setSquareTestMode} />
 						</div>
+
+						<div className="space-y-3">
+							<p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+								{squareTestMode ? "Sandbox Credentials (active)" : "Live Credentials (active)"}
+							</p>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label>Application ID</Label>
+									<Input
+										value={squareTestMode ? squareTestAppId : squareAppId}
+										onChange={(e) => squareTestMode ? setSquareTestAppId(e.target.value) : setSquareAppId(e.target.value)}
+										placeholder={squareTestMode ? "sandbox-sq0idp-..." : "sq0idp-..."}
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label>Access Token</Label>
+									<Input
+										type="password"
+										value={squareTestMode ? squareTestAccessToken : squareAccessToken}
+										onChange={(e) => squareTestMode ? setSquareTestAccessToken(e.target.value) : setSquareAccessToken(e.target.value)}
+										placeholder="EAAAl..."
+									/>
+								</div>
+							</div>
+							<div className="space-y-2">
+								<Label>Location ID</Label>
+								<Input
+									value={squareTestMode ? squareTestLocationId : squareLocationId}
+									onChange={(e) => squareTestMode ? setSquareTestLocationId(e.target.value) : setSquareLocationId(e.target.value)}
+									placeholder="L..."
+								/>
+								<p className="text-xs text-muted-foreground">From Square Dashboard &rarr; Locations.</p>
+							</div>
+						</div>
+
 						<p className="text-xs text-muted-foreground">
 							Get credentials from <code className="bg-muted px-1 py-0.5 rounded">developer.squareup.com</code>. Payments go directly to your Square account.
 						</p>
 					</div>
-					{squareAccessToken && (
+					{(squareAccessToken || squareTestAccessToken) && (
 						<div className="pt-2 border-t">
 							<Button variant="destructive" size="sm" onClick={async () => {
 								await deleteWorkspaceSquareConfig()
-								setSquareAppId(""); setSquareAccessToken(""); setSquareLocationId(""); setSquareTestMode(true)
+								setSquareAppId(""); setSquareAccessToken(""); setSquareLocationId("")
+								setSquareTestAppId(""); setSquareTestAccessToken(""); setSquareTestLocationId("")
+								setSquareTestMode(true)
 								toast.success("Square config removed")
 							}}>Remove Square Config</Button>
 						</div>

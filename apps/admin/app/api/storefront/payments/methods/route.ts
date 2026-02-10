@@ -39,26 +39,33 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 
 		const creds = integration.credentials as Record<string, any> | null
 		const meta = integration.metadata as Record<string, any> | null
-		if (!creds?.apiKey) continue
+		// Skip if no credentials at all (check both live and test keys)
+		const hasLiveKey = !!creds?.apiKey
+		const hasTestKey = !!(meta?.testSecretKey || meta?.testAccessToken || meta?.testClientId)
+		if (!hasLiveKey && !hasTestKey) continue
+
+		const isTestMode = meta?.testMode === true
 
 		switch (provider) {
 			case "stripe": {
 				if (s("pay_cards_enabled") === "false") break
+				const publishableKey = (isTestMode && meta?.testPublishableKey) ? meta.testPublishableKey : (meta?.publishableKey || "")
 				methods.push({
 					provider: "stripe",
 					type: "cards",
-					publishableKey: meta?.publishableKey || "",
-					testMode: meta?.testMode ?? true,
+					publishableKey,
+					testMode: isTestMode,
 				})
 				break
 			}
 			case "paypal": {
 				if (s("pay_paypal") === "false") break
+				const clientId = (isTestMode && meta?.testClientId) ? meta.testClientId : creds?.apiKey
 				methods.push({
 					provider: "paypal",
 					type: "paypal",
-					clientId: creds.apiKey,
-					mode: meta?.testMode !== false ? "sandbox" : "live",
+					clientId,
+					mode: isTestMode ? "sandbox" : "live",
 				})
 				break
 			}
@@ -66,7 +73,7 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 				methods.push({
 					provider: "polar",
 					type: "fiat",
-					mode: meta?.testMode !== false ? "sandbox" : "production",
+					mode: isTestMode ? "sandbox" : "production",
 				})
 				break
 			}
@@ -75,7 +82,7 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 				methods.push({
 					provider: "reown",
 					type: "crypto",
-					projectId: creds.apiKey,
+					projectId: creds?.apiKey,
 					chains: meta?.chains ?? ["btc", "eth", "sol", "usdc", "usdt", "bnb", "zec", "xrp"],
 				})
 				break
@@ -89,11 +96,12 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 				break
 			}
 			case "square": {
+				const appId = (isTestMode && meta?.testApplicationId) ? meta.testApplicationId : (meta?.applicationId || creds?.apiKey)
 				methods.push({
 					provider: "square",
 					type: "square",
-					applicationId: creds.apiKey,
-					mode: meta?.testMode !== false ? "sandbox" : "live",
+					applicationId: appId,
+					mode: isTestMode ? "sandbox" : "live",
 				})
 				break
 			}

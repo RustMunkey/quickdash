@@ -2,8 +2,8 @@ import { type NextRequest } from "next/server"
 import { db } from "@quickdash/db/client"
 import { eq, and, inArray } from "@quickdash/db/drizzle"
 import { orders, orderItems, products, productVariants, addresses, users } from "@quickdash/db/schema"
-import { nanoid } from "nanoid"
 import { withStorefrontAuth, storefrontError, handleCorsOptions, type StorefrontContext } from "@/lib/storefront-auth"
+import { generateOrderNumber } from "@/lib/order-utils"
 
 type CartItem = {
 	variantId: string
@@ -30,12 +30,6 @@ type CheckoutInput = {
 	billingAddress?: AddressInput
 	customerNotes?: string
 	metadata?: Record<string, unknown>
-}
-
-function generateOrderNumber(): string {
-	const timestamp = Date.now().toString(36).toUpperCase()
-	const random = nanoid(4).toUpperCase()
-	return `ORD-${timestamp}-${random}`
 }
 
 async function handlePost(request: NextRequest, storefront: StorefrontContext) {

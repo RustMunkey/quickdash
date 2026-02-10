@@ -32,41 +32,6 @@ export const COLLECTION_TEMPLATES: CollectionTemplate[] = [
 		},
 	},
 	{
-		name: "Testimonials",
-		slug: "testimonials",
-		description: "Customer reviews and testimonials",
-		icon: "star",
-		allowPublicSubmit: true,
-		publicSubmitStatus: "inactive",
-		schema: {
-			fields: [
-				{ key: "reviewerName", label: "Reviewer Name", type: "text", required: true },
-				{ key: "reviewerEmail", label: "Reviewer Email", type: "email" },
-				{ key: "rating", label: "Rating", type: "rating", required: true },
-				{ key: "title", label: "Title", type: "text" },
-				{ key: "content", label: "Content", type: "textarea", required: true },
-				{
-					key: "status",
-					label: "Status",
-					type: "select",
-					required: true,
-					options: [
-						{ label: "Pending", value: "pending" },
-						{ label: "Approved", value: "approved" },
-						{ label: "Rejected", value: "rejected" },
-					],
-				},
-				{ key: "isFeatured", label: "Featured", type: "boolean" },
-			],
-			settings: {
-				titleField: "reviewerName",
-				descriptionField: "content",
-				defaultSort: "createdAt",
-				defaultSortDir: "desc",
-			},
-		},
-	},
-	{
 		name: "Stats",
 		slug: "stats",
 		description: "Key statistics and numbers",

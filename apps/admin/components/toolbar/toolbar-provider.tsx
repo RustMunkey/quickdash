@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import type { WorkspaceFeatures } from "@quickdash/db/schema"
 
 export type ToolbarWidget =
 	| "calculator"
@@ -8,6 +9,8 @@ export type ToolbarWidget =
 	| "notes"
 	| "stats"
 	| "converter"
+	| "fileConverter"
+	| "fileCompressor"
 	| null
 
 type NonNullWidget = Exclude<ToolbarWidget, null>
@@ -26,6 +29,7 @@ type ToolbarContextType = {
 	toggleWidget: (widget: NonNullWidget) => void
 	closeWidget: (widget: NonNullWidget) => void
 	isWidgetOpen: (widget: NonNullWidget) => boolean
+	features: Partial<WorkspaceFeatures>
 }
 
 const ToolbarContext = React.createContext<ToolbarContextType | null>(null)
@@ -38,7 +42,7 @@ export function useToolbar() {
 	return context
 }
 
-export function ToolbarProvider({ children }: { children: React.ReactNode }) {
+export function ToolbarProvider({ children, features = {} }: { children: React.ReactNode; features?: Partial<WorkspaceFeatures> }) {
 	const [isOpen, setIsOpen] = React.useState(false)
 	const [activeWidgets, setActiveWidgets] = React.useState<Set<NonNullWidget>>(new Set())
 
@@ -141,6 +145,7 @@ export function ToolbarProvider({ children }: { children: React.ReactNode }) {
 				toggleWidget,
 				closeWidget,
 				isWidgetOpen,
+				features,
 			}}
 		>
 			{children}

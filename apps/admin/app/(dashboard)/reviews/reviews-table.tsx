@@ -13,18 +13,14 @@ import { bulkModerate } from "./actions"
 
 interface Review {
 	id: string
+	reviewerName: string
+	reviewerEmail: string | null
 	rating: number
 	title: string | null
-	body: string | null
+	content: string
 	status: string
-	isVerifiedPurchase: boolean | null
-	helpfulCount: number | null
-	reportCount: number | null
+	isFeatured: boolean
 	createdAt: Date
-	productName: string | null
-	productId: string
-	customerName: string | null
-	customerEmail: string | null
 }
 
 interface ReviewsTableProps {
@@ -48,20 +44,13 @@ export function ReviewsTable({ reviews, totalCount }: ReviewsTableProps) {
 
 	const columns: Column<Review>[] = [
 		{
-			key: "product",
-			header: "Product",
-			cell: (row) => (
-				<span className="text-sm">{row.productName ?? "—"}</span>
-			),
-		},
-		{
-			key: "customer",
-			header: "Customer",
+			key: "reviewerName",
+			header: "Reviewer",
 			cell: (row) => (
 				<div>
-					<span className="text-sm">{row.customerName ?? "—"}</span>
-					{row.isVerifiedPurchase && (
-						<span className="ml-1 text-[10px] text-green-600">Verified</span>
+					<span className="text-sm">{row.reviewerName}</span>
+					{row.reviewerEmail && (
+						<p className="text-[10px] text-muted-foreground">{row.reviewerEmail}</p>
 					)}
 				</div>
 			),
@@ -72,11 +61,11 @@ export function ReviewsTable({ reviews, totalCount }: ReviewsTableProps) {
 			cell: (row) => <Stars rating={row.rating} />,
 		},
 		{
-			key: "body",
+			key: "content",
 			header: "Review",
 			cell: (row) => (
 				<span className="text-xs text-muted-foreground truncate max-w-[200px] inline-block">
-					{row.title || row.body || "—"}
+					{row.title || row.content || "—"}
 				</span>
 			),
 		},
@@ -84,6 +73,17 @@ export function ReviewsTable({ reviews, totalCount }: ReviewsTableProps) {
 			key: "status",
 			header: "Status",
 			cell: (row) => <StatusBadge status={row.status} type="review" />,
+		},
+		{
+			key: "isFeatured",
+			header: "Featured",
+			cell: (row) => (
+				row.isFeatured ? (
+					<span className="text-amber-500 text-xs font-medium">★ Featured</span>
+				) : (
+					<span className="text-xs text-muted-foreground">—</span>
+				)
+			),
 		},
 		{
 			key: "createdAt",

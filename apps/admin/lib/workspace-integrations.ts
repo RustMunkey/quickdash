@@ -25,18 +25,64 @@ export async function getWorkspaceIntegration(
 }
 
 /**
- * Get Stripe secret key from workspace integrations
+ * Get Stripe secret key from workspace integrations (respects testMode toggle)
  */
 export async function getStripeSecretKey(workspaceId: string): Promise<string | null> {
 	const integration = await getWorkspaceIntegration(workspaceId, "stripe")
 	if (!integration) return null
 
 	const credentials = integration.credentials as unknown as ApiKeyCredentials | null
+	const metadata = integration.metadata as {
+		testSecretKey?: string
+		testMode?: boolean
+	} | null
+
+	if (metadata?.testMode && metadata?.testSecretKey) {
+		return metadata.testSecretKey
+	}
 	return credentials?.apiKey ?? null
 }
 
 /**
- * Get PayPal credentials from workspace integrations
+ * Get Stripe publishable key (respects testMode toggle)
+ */
+export async function getStripePublishableKey(workspaceId: string): Promise<string | null> {
+	const integration = await getWorkspaceIntegration(workspaceId, "stripe")
+	if (!integration) return null
+
+	const metadata = integration.metadata as {
+		publishableKey?: string
+		testPublishableKey?: string
+		testMode?: boolean
+	} | null
+
+	if (metadata?.testMode && metadata?.testPublishableKey) {
+		return metadata.testPublishableKey
+	}
+	return metadata?.publishableKey ?? null
+}
+
+/**
+ * Get Stripe webhook secret (respects testMode toggle)
+ */
+export async function getStripeWebhookSecret(workspaceId: string): Promise<string | null> {
+	const integration = await getWorkspaceIntegration(workspaceId, "stripe")
+	if (!integration) return null
+
+	const metadata = integration.metadata as {
+		webhookSecret?: string
+		testWebhookSecret?: string
+		testMode?: boolean
+	} | null
+
+	if (metadata?.testMode && metadata?.testWebhookSecret) {
+		return metadata.testWebhookSecret
+	}
+	return metadata?.webhookSecret ?? null
+}
+
+/**
+ * Get PayPal credentials from workspace integrations (respects testMode toggle)
  */
 export async function getPayPalCredentials(workspaceId: string): Promise<{
 	clientId: string
@@ -47,22 +93,36 @@ export async function getPayPalCredentials(workspaceId: string): Promise<{
 	if (!integration) return null
 
 	const credentials = integration.credentials as {
-		apiKey: string // clientId
-		apiSecret: string // clientSecret
+		apiKey: string // live clientId
+		apiSecret: string // live clientSecret
 	}
-	const metadata = integration.metadata as { testMode?: boolean }
+	const metadata = integration.metadata as {
+		testClientId?: string
+		testClientSecret?: string
+		testMode?: boolean
+	}
+
+	const isTestMode = metadata?.testMode !== false
+
+	if (isTestMode && metadata?.testClientId && metadata?.testClientSecret) {
+		return {
+			clientId: metadata.testClientId,
+			clientSecret: metadata.testClientSecret,
+			mode: "sandbox",
+		}
+	}
 
 	if (!credentials?.apiKey || !credentials?.apiSecret) return null
 
 	return {
 		clientId: credentials.apiKey,
 		clientSecret: credentials.apiSecret,
-		mode: metadata?.testMode !== false ? "sandbox" : "live",
+		mode: isTestMode ? "sandbox" : "live",
 	}
 }
 
 /**
- * Get Polar credentials from workspace integrations
+ * Get Polar credentials from workspace integrations (respects testMode toggle)
  */
 export async function getPolarCredentials(workspaceId: string): Promise<{
 	accessToken: string
@@ -73,16 +133,31 @@ export async function getPolarCredentials(workspaceId: string): Promise<{
 	if (!integration) return null
 
 	const credentials = integration.credentials as {
-		apiKey: string // accessToken
+		apiKey: string // live accessToken
 	}
-	const metadata = integration.metadata as { webhookSecret?: string; testMode?: boolean }
+	const metadata = integration.metadata as {
+		webhookSecret?: string
+		testAccessToken?: string
+		testWebhookSecret?: string
+		testMode?: boolean
+	}
+
+	const isTestMode = metadata?.testMode !== false
+
+	if (isTestMode && metadata?.testAccessToken) {
+		return {
+			accessToken: metadata.testAccessToken,
+			webhookSecret: metadata?.testWebhookSecret ?? "",
+			mode: "sandbox",
+		}
+	}
 
 	if (!credentials?.apiKey) return null
 
 	return {
 		accessToken: credentials.apiKey,
 		webhookSecret: metadata?.webhookSecret ?? "",
-		mode: metadata?.testMode !== false ? "sandbox" : "production",
+		mode: isTestMode ? "sandbox" : "production",
 	}
 }
 
@@ -138,7 +213,7 @@ export async function getShopifyCredentials(workspaceId: string): Promise<{
 }
 
 /**
- * Get Square credentials from workspace integrations
+ * Get Square credentials from workspace integrations (respects testMode toggle)
  */
 export async function getSquareCredentials(workspaceId: string): Promise<{
 	applicationId: string
@@ -150,18 +225,35 @@ export async function getSquareCredentials(workspaceId: string): Promise<{
 	if (!integration) return null
 
 	const credentials = integration.credentials as {
-		apiKey: string // applicationId
-		apiSecret: string // accessToken
+		apiKey: string // live accessToken
 	}
-	const metadata = integration.metadata as { locationId?: string; testMode?: boolean }
+	const metadata = integration.metadata as {
+		applicationId?: string
+		locationId?: string
+		testApplicationId?: string
+		testAccessToken?: string
+		testLocationId?: string
+		testMode?: boolean
+	}
 
-	if (!credentials?.apiKey || !credentials?.apiSecret) return null
+	const isTestMode = metadata?.testMode !== false
+
+	if (isTestMode && metadata?.testAccessToken && metadata?.testApplicationId) {
+		return {
+			applicationId: metadata.testApplicationId,
+			accessToken: metadata.testAccessToken,
+			locationId: metadata?.testLocationId || "",
+			mode: "sandbox",
+		}
+	}
+
+	if (!credentials?.apiKey || !metadata?.applicationId) return null
 
 	return {
-		applicationId: credentials.apiKey,
-		accessToken: credentials.apiSecret,
+		applicationId: metadata.applicationId,
+		accessToken: credentials.apiKey,
 		locationId: metadata?.locationId || "",
-		mode: metadata?.testMode !== false ? "sandbox" : "live",
+		mode: isTestMode ? "sandbox" : "live",
 	}
 }
 

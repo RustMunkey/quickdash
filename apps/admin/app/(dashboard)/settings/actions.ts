@@ -2,7 +2,7 @@
 
 import { db } from "@quickdash/db/client"
 import * as schema from "@quickdash/db/schema"
-import { eq, and } from "@quickdash/db/drizzle"
+import { eq, and, inArray } from "@quickdash/db/drizzle"
 import { requireWorkspace, checkWorkspacePermission } from "@/lib/workspace"
 
 async function requireSettingsPermission() {
@@ -222,6 +222,9 @@ export async function getWorkspaceStripeConfig() {
 			secretKey: "",
 			publishableKey: "",
 			webhookSecret: "",
+			testSecretKey: "",
+			testPublishableKey: "",
+			testWebhookSecret: "",
 			testMode: true,
 		}
 	}
@@ -233,6 +236,9 @@ export async function getWorkspaceStripeConfig() {
 	const metadata = integration.metadata as {
 		publishableKey?: string
 		webhookSecret?: string
+		testSecretKey?: string
+		testPublishableKey?: string
+		testWebhookSecret?: string
 		testMode?: boolean
 	} | null
 
@@ -241,6 +247,9 @@ export async function getWorkspaceStripeConfig() {
 		secretKey: credentials?.apiKey || "",
 		publishableKey: metadata?.publishableKey || "",
 		webhookSecret: metadata?.webhookSecret || "",
+		testSecretKey: metadata?.testSecretKey || "",
+		testPublishableKey: metadata?.testPublishableKey || "",
+		testWebhookSecret: metadata?.testWebhookSecret || "",
 		testMode: metadata?.testMode ?? true,
 	}
 }
@@ -249,6 +258,9 @@ export async function saveWorkspaceStripeConfig(config: {
 	secretKey: string
 	publishableKey: string
 	webhookSecret: string
+	testSecretKey: string
+	testPublishableKey: string
+	testWebhookSecret: string
 	testMode: boolean
 }) {
 	const workspace = await requireSettingsPermission()
@@ -268,6 +280,9 @@ export async function saveWorkspaceStripeConfig(config: {
 	const metadata = {
 		publishableKey: config.publishableKey,
 		webhookSecret: config.webhookSecret,
+		testSecretKey: config.testSecretKey,
+		testPublishableKey: config.testPublishableKey,
+		testWebhookSecret: config.testWebhookSecret,
 		testMode: config.testMode,
 	}
 
@@ -329,6 +344,8 @@ export async function getWorkspacePayPalConfig() {
 			hasConfig: false,
 			clientId: "",
 			clientSecret: "",
+			testClientId: "",
+			testClientSecret: "",
 			testMode: true,
 		}
 	}
@@ -338,6 +355,8 @@ export async function getWorkspacePayPalConfig() {
 		apiSecret?: string
 	} | null
 	const metadata = integration.metadata as {
+		testClientId?: string
+		testClientSecret?: string
 		testMode?: boolean
 	} | null
 
@@ -345,6 +364,8 @@ export async function getWorkspacePayPalConfig() {
 		hasConfig: true,
 		clientId: credentials?.apiKey || "",
 		clientSecret: credentials?.apiSecret || "",
+		testClientId: metadata?.testClientId || "",
+		testClientSecret: metadata?.testClientSecret || "",
 		testMode: metadata?.testMode ?? true,
 	}
 }
@@ -352,6 +373,8 @@ export async function getWorkspacePayPalConfig() {
 export async function saveWorkspacePayPalConfig(config: {
 	clientId: string
 	clientSecret: string
+	testClientId: string
+	testClientSecret: string
 	testMode: boolean
 }) {
 	const workspace = await requireSettingsPermission()
@@ -368,7 +391,11 @@ export async function saveWorkspacePayPalConfig(config: {
 		.limit(1)
 
 	const credentials = { apiKey: config.clientId, apiSecret: config.clientSecret }
-	const metadata = { testMode: config.testMode }
+	const metadata = {
+		testClientId: config.testClientId,
+		testClientSecret: config.testClientSecret,
+		testMode: config.testMode,
+	}
 
 	if (existing) {
 		await db
@@ -428,6 +455,8 @@ export async function getWorkspacePolarConfig() {
 			hasConfig: false,
 			accessToken: "",
 			webhookSecret: "",
+			testAccessToken: "",
+			testWebhookSecret: "",
 			testMode: true,
 		}
 	}
@@ -437,6 +466,8 @@ export async function getWorkspacePolarConfig() {
 	} | null
 	const metadata = integration.metadata as {
 		webhookSecret?: string
+		testAccessToken?: string
+		testWebhookSecret?: string
 		testMode?: boolean
 	} | null
 
@@ -444,6 +475,8 @@ export async function getWorkspacePolarConfig() {
 		hasConfig: true,
 		accessToken: credentials?.apiKey || "",
 		webhookSecret: metadata?.webhookSecret || "",
+		testAccessToken: metadata?.testAccessToken || "",
+		testWebhookSecret: metadata?.testWebhookSecret || "",
 		testMode: metadata?.testMode ?? true,
 	}
 }
@@ -451,6 +484,8 @@ export async function getWorkspacePolarConfig() {
 export async function saveWorkspacePolarConfig(config: {
 	accessToken: string
 	webhookSecret: string
+	testAccessToken: string
+	testWebhookSecret: string
 	testMode: boolean
 }) {
 	const workspace = await requireSettingsPermission()
@@ -469,6 +504,8 @@ export async function saveWorkspacePolarConfig(config: {
 	const credentials = { apiKey: config.accessToken }
 	const metadata = {
 		webhookSecret: config.webhookSecret,
+		testAccessToken: config.testAccessToken,
+		testWebhookSecret: config.testWebhookSecret,
 		testMode: config.testMode,
 	}
 
@@ -734,6 +771,9 @@ export async function getWorkspaceSquareConfig() {
 			applicationId: "",
 			accessToken: "",
 			locationId: "",
+			testApplicationId: "",
+			testAccessToken: "",
+			testLocationId: "",
 			testMode: true,
 		}
 	}
@@ -744,6 +784,9 @@ export async function getWorkspaceSquareConfig() {
 	const metadata = integration.metadata as {
 		applicationId?: string
 		locationId?: string
+		testApplicationId?: string
+		testAccessToken?: string
+		testLocationId?: string
 		testMode?: boolean
 	} | null
 
@@ -752,6 +795,9 @@ export async function getWorkspaceSquareConfig() {
 		applicationId: metadata?.applicationId || "",
 		accessToken: credentials?.apiKey || "",
 		locationId: metadata?.locationId || "",
+		testApplicationId: metadata?.testApplicationId || "",
+		testAccessToken: metadata?.testAccessToken || "",
+		testLocationId: metadata?.testLocationId || "",
 		testMode: metadata?.testMode ?? true,
 	}
 }
@@ -760,6 +806,9 @@ export async function saveWorkspaceSquareConfig(config: {
 	applicationId: string
 	accessToken: string
 	locationId: string
+	testApplicationId: string
+	testAccessToken: string
+	testLocationId: string
 	testMode: boolean
 }) {
 	const workspace = await requireSettingsPermission()
@@ -779,6 +828,9 @@ export async function saveWorkspaceSquareConfig(config: {
 	const metadata = {
 		applicationId: config.applicationId,
 		locationId: config.locationId,
+		testApplicationId: config.testApplicationId,
+		testAccessToken: config.testAccessToken,
+		testLocationId: config.testLocationId,
 		testMode: config.testMode,
 	}
 
@@ -815,4 +867,26 @@ export async function deleteWorkspaceSquareConfig() {
 				eq(schema.workspaceIntegrations.provider, "square")
 			)
 		)
+}
+
+export async function toggleAllProvidersTestMode(enabled: boolean) {
+	const workspace = await requireSettingsPermission()
+
+	const providers = await db
+		.select()
+		.from(schema.workspaceIntegrations)
+		.where(
+			and(
+				eq(schema.workspaceIntegrations.workspaceId, workspace.id),
+				inArray(schema.workspaceIntegrations.provider, ["stripe", "paypal", "polar", "reown", "shopify", "square"])
+			)
+		)
+
+	for (const p of providers) {
+		const meta = (p.metadata as Record<string, unknown>) || {}
+		await db
+			.update(schema.workspaceIntegrations)
+			.set({ metadata: { ...meta, testMode: enabled } })
+			.where(eq(schema.workspaceIntegrations.id, p.id))
+	}
 }

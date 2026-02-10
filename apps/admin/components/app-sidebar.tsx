@@ -1229,6 +1229,7 @@ export function AppSidebar({
               )}
             </SidebarContent>
             <SidebarFooter>
+              <StorageIndicator />
               <NavUser user={user} />
             </SidebarFooter>
           </>

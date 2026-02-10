@@ -3,28 +3,23 @@
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { StatusBadge } from "@/components/status-badge"
 import { formatDateTime } from "@/lib/format"
 import { useBreadcrumbOverride } from "@/components/breadcrumb-context"
-import { moderateReview, deleteReview } from "../actions"
+import { moderateReview, deleteReview, toggleFeatured } from "../actions"
 
 interface ReviewDetailProps {
 	review: {
 		id: string
+		reviewerName: string
+		reviewerEmail: string | null
 		rating: number
 		title: string | null
-		body: string | null
+		content: string
 		status: string
-		isVerifiedPurchase: boolean | null
-		helpfulCount: number | null
-		reportCount: number | null
-		moderatedAt: Date | null
+		isFeatured: boolean
 		createdAt: Date
-		productName: string | null
-		productId: string
-		customerName: string | null
-		customerEmail: string | null
+		updatedAt: Date
 	}
 }
 
@@ -38,12 +33,22 @@ function Stars({ rating }: { rating: number }) {
 
 export function ReviewDetail({ review }: ReviewDetailProps) {
 	const router = useRouter()
-	useBreadcrumbOverride(review.id, review.productName ?? "Review")
+	useBreadcrumbOverride(review.id, review.reviewerName)
 
-	const handleModerate = async (status: "approved" | "rejected" | "reported") => {
+	const handleModerate = async (status: "approved" | "rejected") => {
 		try {
 			await moderateReview(review.id, status)
 			toast.success(`Review ${status}`)
+			router.refresh()
+		} catch (e: any) {
+			toast.error(e.message)
+		}
+	}
+
+	const handleToggleFeatured = async () => {
+		try {
+			await toggleFeatured(review.id, !review.isFeatured)
+			toast.success(review.isFeatured ? "Removed from featured" : "Added to featured")
 			router.refresh()
 		} catch (e: any) {
 			toast.error(e.message)
@@ -67,6 +72,9 @@ export function ReviewDetail({ review }: ReviewDetailProps) {
 				<div className="flex items-center gap-3">
 					<h2 className="text-lg font-semibold">Review</h2>
 					<StatusBadge status={review.status} type="review" />
+					{review.isFeatured && (
+						<span className="text-amber-500 text-xs font-medium">★ Featured</span>
+					)}
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					{review.status !== "approved" && (
@@ -79,11 +87,9 @@ export function ReviewDetail({ review }: ReviewDetailProps) {
 							Reject
 						</Button>
 					)}
-					{review.status !== "reported" && (
-						<Button size="sm" variant="outline" onClick={() => handleModerate("reported")}>
-							Flag
-						</Button>
-					)}
+					<Button size="sm" variant="outline" onClick={handleToggleFeatured}>
+						{review.isFeatured ? "Unfeature" : "Feature"}
+					</Button>
 					<Button size="sm" variant="destructive" onClick={handleDelete}>
 						Delete
 					</Button>
@@ -94,20 +100,13 @@ export function ReviewDetail({ review }: ReviewDetailProps) {
 				{/* Main content */}
 				<div className="md:col-span-2 space-y-4">
 					<div className="rounded-lg border px-4 py-4 space-y-3">
-						<div className="flex items-center gap-3">
-							<Stars rating={review.rating} />
-							{review.isVerifiedPurchase && (
-								<Badge variant="secondary" className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-0">
-									Verified Purchase
-								</Badge>
-							)}
-						</div>
+						<Stars rating={review.rating} />
 						{review.title && (
 							<h3 className="font-medium">{review.title}</h3>
 						)}
-						{review.body ? (
+						{review.content ? (
 							<p className="text-sm text-muted-foreground whitespace-pre-wrap">
-								{review.body}
+								{review.content}
 							</p>
 						) : (
 							<p className="text-sm text-muted-foreground italic">No review text</p>
@@ -118,27 +117,18 @@ export function ReviewDetail({ review }: ReviewDetailProps) {
 				{/* Sidebar */}
 				<div className="space-y-4">
 					<div className="rounded-lg border px-4 py-3">
-						<h3 className="text-sm font-medium mb-2">Product</h3>
-						<p className="text-sm">{review.productName ?? "Unknown"}</p>
-					</div>
-
-					<div className="rounded-lg border px-4 py-3">
-						<h3 className="text-sm font-medium mb-2">Customer</h3>
-						<p className="text-sm">{review.customerName ?? "Unknown"}</p>
-						{review.customerEmail && (
-							<p className="text-xs text-muted-foreground">{review.customerEmail}</p>
+						<h3 className="text-sm font-medium mb-2">Reviewer</h3>
+						<p className="text-sm">{review.reviewerName}</p>
+						{review.reviewerEmail && (
+							<p className="text-xs text-muted-foreground">{review.reviewerEmail}</p>
 						)}
 					</div>
 
 					<div className="rounded-lg border px-4 py-3">
-						<h3 className="text-sm font-medium mb-2">Stats</h3>
+						<h3 className="text-sm font-medium mb-2">Details</h3>
 						<div className="text-xs text-muted-foreground space-y-1">
-							<p>Helpful votes: {review.helpfulCount ?? 0}</p>
-							<p>Reports: {review.reportCount ?? 0}</p>
 							<p>Submitted: {formatDateTime(review.createdAt)}</p>
-							{review.moderatedAt && (
-								<p>Moderated: {formatDateTime(review.moderatedAt)}</p>
-							)}
+							<p>Updated: {formatDateTime(review.updatedAt)}</p>
 						</div>
 					</div>
 				</div>

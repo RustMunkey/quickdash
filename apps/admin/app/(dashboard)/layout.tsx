@@ -10,6 +10,7 @@ import { BreadcrumbNav } from "@/components/breadcrumb-nav"
 import { BreadcrumbProvider } from "@/components/breadcrumb-context"
 import { CommandMenuWrapper } from "@/components/command-menu-wrapper"
 import { HeaderToolbar } from "@/components/header-toolbar"
+import { ModeBanner } from "@/components/mode-banner"
 import { PusherProvider } from "@/components/pusher-provider"
 import { CallProvider, IncomingCallModal, CallInterface } from "@/components/calls"
 import { MusicPlayerProvider, MusicPlayerLoader } from "@/components/music-player"
@@ -89,13 +90,14 @@ export default async function DashboardLayout({
   let workspaceStorefrontUrl: string | null = null
   let workspaceCustomDomain: string | null = null
   let workspaceMaintenanceMode = false
+  let workspaceSandboxMode = false
   if (activeWorkspace?.id) {
     const brandingSettings = await db
       .select({ key: storeSettings.key, value: storeSettings.value })
       .from(storeSettings)
       .where(and(
         eq(storeSettings.workspaceId, activeWorkspace.id),
-        inArray(storeSettings.key, ["store_favicon_url", "store_name", "store_tagline", "storefront_url", "custom_domain", "maintenance_mode"])
+        inArray(storeSettings.key, ["store_favicon_url", "store_name", "store_tagline", "storefront_url", "custom_domain", "maintenance_mode", "sandbox_mode"])
       ))
     for (const setting of brandingSettings) {
       if (setting.key === "store_favicon_url") workspaceFavicon = setting.value
@@ -104,6 +106,7 @@ export default async function DashboardLayout({
       if (setting.key === "storefront_url") workspaceStorefrontUrl = setting.value
       if (setting.key === "custom_domain") workspaceCustomDomain = setting.value
       if (setting.key === "maintenance_mode") workspaceMaintenanceMode = setting.value === "true"
+      if (setting.key === "sandbox_mode") workspaceSandboxMode = setting.value === "true"
     }
   }
 
@@ -150,7 +153,7 @@ export default async function DashboardLayout({
         userImage={user?.image || null}
       >
         <MusicPlayerProvider>
-          <ToolbarProvider>
+          <ToolbarProvider features={activeWorkspace?.features}>
             <ChatProvider>
               <SidebarModeProvider>
                 <WorkspaceSidebarWrapper
@@ -191,8 +194,9 @@ export default async function DashboardLayout({
                               <BreadcrumbNav />
                             </div>
                           </div>
-                          <HeaderToolbar storefrontUrl={workspaceCustomDomain || workspaceStorefrontUrl} initialMaintenanceMode={workspaceMaintenanceMode} />
+                          <HeaderToolbar storefrontUrl={workspaceCustomDomain || workspaceStorefrontUrl} initialMaintenanceMode={workspaceMaintenanceMode} initialSandboxMode={workspaceSandboxMode} />
                         </header>
+                        <ModeBanner initialMaintenanceMode={workspaceMaintenanceMode} initialSandboxMode={workspaceSandboxMode} />
                         {children}
                       </BreadcrumbProvider>
                     </SidebarInset>

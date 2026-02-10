@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useCommandMenu } from "@/components/command-menu"
-import { updateSetting } from "@/app/(dashboard)/settings/actions"
+import { updateSetting, toggleAllProvidersTestMode } from "@/app/(dashboard)/settings/actions"
 import { toast } from "sonner"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ActiveCallIndicator } from "@/components/calls"
@@ -44,9 +44,11 @@ import { NotificationBell } from "@/components/notifications"
 import { useChat } from "@/components/messages"
 import { useSidebarMode } from "@/lib/sidebar-mode"
 
-export function HeaderToolbar({ storefrontUrl, initialMaintenanceMode }: { storefrontUrl?: string | null; initialMaintenanceMode?: boolean }) {
+export function HeaderToolbar({ storefrontUrl, initialMaintenanceMode, initialSandboxMode }: { storefrontUrl?: string | null; initialMaintenanceMode?: boolean; initialSandboxMode?: boolean }) {
   const [storeOnline, setStoreOnline] = React.useState(!initialMaintenanceMode)
+  const [sandboxMode, setSandboxMode] = React.useState(initialSandboxMode ?? false)
   const [confirmOpen, setConfirmOpen] = React.useState(false)
+  const [sandboxConfirmOpen, setSandboxConfirmOpen] = React.useState(false)
   const { open: openCommandMenu } = useCommandMenu()
   const router = useRouter()
   const { isOpen: isToolbarOpen, toggleToolbar } = useToolbar()
@@ -120,6 +122,13 @@ export function HeaderToolbar({ storefrontUrl, initialMaintenanceMode }: { store
               >
                 {storeOnline ? "Turn Off (Maintenance)" : "Bring Back Online"}
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setSandboxConfirmOpen(true)}
+                className={sandboxMode ? "text-amber-600 focus:text-amber-600" : ""}
+              >
+                {sandboxMode ? "Exit Sandbox Mode" : "Enter Sandbox Mode"}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
@@ -165,6 +174,41 @@ export function HeaderToolbar({ storefrontUrl, initialMaintenanceMode }: { store
               }}
             >
               {storeOnline ? "Take Offline" : "Go Online"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={sandboxConfirmOpen} onOpenChange={setSandboxConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {sandboxMode ? "Exit sandbox mode?" : "Enter sandbox mode?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {sandboxMode
+                ? "All payment providers will switch back to live credentials. Real payments will be processed."
+                : "All payment providers will switch to test/sandbox credentials. No real charges will be made."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                const newSandbox = !sandboxMode
+                try {
+                  await updateSetting("sandbox_mode", String(newSandbox), "sandbox")
+                  await toggleAllProvidersTestMode(newSandbox)
+                  setSandboxMode(newSandbox)
+                  window.dispatchEvent(new CustomEvent("mode-change", { detail: { key: "sandbox_mode", value: newSandbox } }))
+                  toast.success(newSandbox ? "Sandbox mode enabled — test payments only" : "Sandbox mode disabled — live payments active")
+                  router.refresh()
+                } catch {
+                  toast.error("Failed to toggle sandbox mode")
+                }
+              }}
+            >
+              {sandboxMode ? "Go Live" : "Enter Sandbox"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

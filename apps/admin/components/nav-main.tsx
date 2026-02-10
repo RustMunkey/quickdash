@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
-import { ArrowRight01Icon, SquareLock02Icon } from "@hugeicons/core-free-icons"
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { motion, AnimatePresence } from "framer-motion"
 import { useSidebarState } from "@/lib/use-sidebar-state"
 
@@ -65,20 +65,8 @@ export function NavMain({
         {items.map((item) => {
           const isOpen = openItems.has(item.title)
 
-          // Locked items link to /billing with lock icon
-          if (item.locked) {
-            return (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild tooltip={`${item.title} — Upgrade to unlock`} className="opacity-50">
-                  <Link href="/billing" onClick={() => handleLinkClick("/billing")}>
-                    <HugeiconsIcon icon={item.icon} size={16} />
-                    <span>{item.title}</span>
-                    <HugeiconsIcon icon={SquareLock02Icon} size={12} className="ml-auto text-muted-foreground" />
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )
-          }
+          // Hide locked items entirely — they unlock as the user upgrades
+          if (item.locked) return null
 
           return (
             <SidebarMenuItem key={item.title}>
@@ -119,15 +107,14 @@ export function NavMain({
                         className="overflow-hidden"
                       >
                         <SidebarMenuSub>
-                          {item.items.map((subItem) => (
+                          {item.items.filter((subItem) => !subItem.locked).map((subItem) => (
                             <SidebarMenuSubItem key={subItem.title}>
-                              <SidebarMenuSubButton asChild className={subItem.locked ? "opacity-50" : undefined}>
+                              <SidebarMenuSubButton asChild>
                                 <Link
-                                  href={subItem.locked ? "/billing" : subItem.url}
-                                  onClick={() => handleLinkClick(subItem.locked ? "/billing" : subItem.url)}
+                                  href={subItem.url}
+                                  onClick={() => handleLinkClick(subItem.url)}
                                 >
                                   <span>{subItem.title}</span>
-                                  {subItem.locked && <HugeiconsIcon icon={SquareLock02Icon} size={10} className="ml-auto text-muted-foreground" />}
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>

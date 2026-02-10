@@ -20,7 +20,6 @@ export const orders = pgTable(
 		workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
 		orderNumber: text("order_number").notNull().unique(),
 		userId: text("user_id")
-			.notNull()
 			.references(() => users.id),
 		status: text("status").notNull().default("pending"),
 		subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
@@ -61,11 +60,10 @@ export const orderItems = pgTable("order_items", {
 		.notNull()
 		.references(() => orders.id, { onDelete: "cascade" }),
 	variantId: uuid("variant_id")
-		.notNull()
 		.references(() => productVariants.id),
 	productName: text("product_name").notNull(),
-	variantName: text("variant_name").notNull(),
-	sku: text("sku").notNull(),
+	variantName: text("variant_name"),
+	sku: text("sku"),
 	unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
 	quantity: integer("quantity").notNull(),
 	totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),

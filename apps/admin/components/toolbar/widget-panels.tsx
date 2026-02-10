@@ -11,6 +11,8 @@ import {
 	Cancel01Icon,
 	ArrowDown01Icon,
 	ArrowUp01Icon,
+	Image01Icon,
+	FileZipIcon,
 } from "@hugeicons/core-free-icons"
 import { motion, AnimatePresence, useDragControls } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -24,6 +26,8 @@ import { NotesWidget } from "./widgets/notes-widget"
 import { StatsWidget } from "./widgets/stats-widget"
 import { ConverterWidget } from "./widgets/converter-widget"
 import { BasicCalculator } from "./widgets/calculator-inline"
+import { FileConverterWidget } from "./widgets/file-converter-widget"
+import { FileCompressorWidget } from "./widgets/file-compressor-widget"
 
 type NonNullWidget = Exclude<ToolbarWidget, null>
 
@@ -36,10 +40,12 @@ const WIDGET_INFO: Record<NonNullWidget, {
 	notes: { icon: Note01Icon, label: "Notes" },
 	stats: { icon: ChartHistogramIcon, label: "Quick Stats" },
 	converter: { icon: ArrowDataTransferHorizontalIcon, label: "Converter" },
+	fileConverter: { icon: Image01Icon, label: "File Converter" },
+	fileCompressor: { icon: FileZipIcon, label: "Compressor" },
 }
 
 // Order for consistent stacking (rightmost = index 0)
-const WIDGET_ORDER: NonNullWidget[] = ["calculator", "music", "notes", "stats", "converter"]
+const WIDGET_ORDER: NonNullWidget[] = ["calculator", "music", "notes", "stats", "converter", "fileConverter", "fileCompressor"]
 
 function MusicContent() {
 	const {
@@ -189,6 +195,8 @@ function WidgetPanel({
 				{widget === "notes" && <NotesWidget />}
 				{widget === "stats" && <StatsWidget />}
 				{widget === "converter" && <ConverterWidget />}
+				{widget === "fileConverter" && <FileConverterWidget />}
+				{widget === "fileCompressor" && <FileCompressorWidget />}
 			</div>
 		</motion.div>
 	)
