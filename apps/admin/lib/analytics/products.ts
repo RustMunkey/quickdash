@@ -4,9 +4,9 @@ import { sql, and, gte, lte, eq, sum, count } from "@quickdash/db/drizzle"
 import type { DateRange } from "./types"
 
 export type SkuMargin = {
-  sku: string
+  sku: string | null
   productName: string
-  variantName: string
+  variantName: string | null
   unitsSold: number
   revenue: number
   cost: number

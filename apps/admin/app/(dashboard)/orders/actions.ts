@@ -117,11 +117,11 @@ export async function getOrder(id: string) {
 
 	if (!order) throw new Error("Order not found")
 
-	const [customer] = await db
+	const [customer] = order.userId ? await db
 		.select({ name: users.name, email: users.email, phone: users.phone })
 		.from(users)
 		.where(eq(users.id, order.userId))
-		.limit(1)
+		.limit(1) : [null]
 
 	const items = await db
 		.select()
@@ -208,7 +208,7 @@ export async function updateOrderStatus(id: string, status: string) {
 			orderId: order.id,
 			orderNumber: order.orderNumber,
 			status: order.status,
-			userId: order.userId,
+			userId: order.userId ?? "",
 			total: order.total,
 			subtotal: order.subtotal,
 		})
@@ -394,6 +394,7 @@ export async function cancelOrder(id: string) {
 		.where(eq(orderItems.orderId, id))
 
 	for (const item of items) {
+		if (!item.variantId) continue
 		await db
 			.update(inventory)
 			.set({
@@ -425,7 +426,7 @@ export async function cancelOrder(id: string) {
 		orderId: order.id,
 		orderNumber: order.orderNumber,
 		status: "cancelled",
-		userId: order.userId,
+		userId: order.userId ?? "",
 		total: order.total,
 		subtotal: order.subtotal,
 	})

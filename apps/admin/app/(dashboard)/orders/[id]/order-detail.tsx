@@ -69,12 +69,15 @@ interface OrderDetailProps {
 		customer: { name: string; email: string; phone: string | null } | null
 		items: Array<{
 			id: string
+			orderId: string
+			variantId: string | null
 			productName: string
-			variantName: string
-			sku: string
+			variantName: string | null
+			sku: string | null
 			unitPrice: string
 			quantity: number
 			totalPrice: string
+			createdAt: Date
 		}>
 		payment: {
 			method: string | null

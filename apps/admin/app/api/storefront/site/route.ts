@@ -54,6 +54,14 @@ const PUBLIC_SETTING_KEYS = [
 	"page_faq_url",
 	// Shipping
 	"shipping_free_threshold",
+	"enable_shipping",
+	"international_shipping",
+	"single_item_shipping_cad",
+	"single_item_shipping_usd",
+	"combined_shipping_cad",
+	"combined_shipping_usd",
+	"combined_shipping_enabled",
+	"combined_shipping_threshold",
 	// Storefront Display
 	"storefront_products_per_page",
 	"storefront_default_sort",
@@ -234,6 +242,19 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 				defaultSort: s.storefront_default_sort || "newest",
 				showStock: s.storefront_show_stock === "true",
 				showSold: s.storefront_show_sold === "true",
+			},
+
+			// Shipping settings
+			shipping: {
+				enabled: s.enable_shipping !== "false",
+				international: s.international_shipping !== "false",
+				freeThreshold: s.shipping_free_threshold ? parseFloat(s.shipping_free_threshold) : null,
+				singleItemCAD: parseFloat(s.single_item_shipping_cad || "0") || null,
+				singleItemUSD: parseFloat(s.single_item_shipping_usd || "0") || null,
+				combinedCAD: parseFloat(s.combined_shipping_cad || "0") || null,
+				combinedUSD: parseFloat(s.combined_shipping_usd || "0") || null,
+				combinedEnabled: s.combined_shipping_enabled !== "false",
+				combinedThreshold: parseInt(s.combined_shipping_threshold || "2") || 2,
 			},
 
 			// Maintenance mode
