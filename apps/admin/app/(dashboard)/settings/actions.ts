@@ -601,3 +601,218 @@ export async function deleteWorkspaceReownConfig() {
 			)
 		)
 }
+
+// ============================================
+// Shopify Integration (BYOK)
+// ============================================
+
+export async function getWorkspaceShopifyConfig() {
+	const workspace = await requireWorkspace()
+
+	const [integration] = await db
+		.select()
+		.from(schema.workspaceIntegrations)
+		.where(
+			and(
+				eq(schema.workspaceIntegrations.workspaceId, workspace.id),
+				eq(schema.workspaceIntegrations.provider, "shopify")
+			)
+		)
+		.limit(1)
+
+	if (!integration) {
+		return {
+			hasConfig: false,
+			storeDomain: "",
+			storefrontToken: "",
+			adminToken: "",
+			testMode: true,
+		}
+	}
+
+	const credentials = integration.credentials as {
+		apiKey?: string
+		apiSecret?: string
+	} | null
+	const metadata = integration.metadata as {
+		storeDomain?: string
+		adminToken?: string
+		testMode?: boolean
+	} | null
+
+	return {
+		hasConfig: true,
+		storeDomain: metadata?.storeDomain || "",
+		storefrontToken: credentials?.apiKey || "",
+		adminToken: metadata?.adminToken || "",
+		testMode: metadata?.testMode ?? true,
+	}
+}
+
+export async function saveWorkspaceShopifyConfig(config: {
+	storeDomain: string
+	storefrontToken: string
+	adminToken: string
+	testMode: boolean
+}) {
+	const workspace = await requireSettingsPermission()
+
+	const [existing] = await db
+		.select()
+		.from(schema.workspaceIntegrations)
+		.where(
+			and(
+				eq(schema.workspaceIntegrations.workspaceId, workspace.id),
+				eq(schema.workspaceIntegrations.provider, "shopify")
+			)
+		)
+		.limit(1)
+
+	const credentials = { apiKey: config.storefrontToken }
+	const metadata = {
+		storeDomain: config.storeDomain,
+		adminToken: config.adminToken,
+		testMode: config.testMode,
+	}
+
+	if (existing) {
+		await db
+			.update(schema.workspaceIntegrations)
+			.set({
+				credentials,
+				metadata,
+				updatedAt: new Date(),
+			})
+			.where(eq(schema.workspaceIntegrations.id, existing.id))
+	} else {
+		await db.insert(schema.workspaceIntegrations).values({
+			workspaceId: workspace.id,
+			provider: "shopify",
+			name: "Shopify Payments",
+			authType: "api_key",
+			credentials,
+			metadata,
+			isActive: true,
+		})
+	}
+}
+
+export async function deleteWorkspaceShopifyConfig() {
+	const workspace = await requireSettingsPermission()
+
+	await db
+		.delete(schema.workspaceIntegrations)
+		.where(
+			and(
+				eq(schema.workspaceIntegrations.workspaceId, workspace.id),
+				eq(schema.workspaceIntegrations.provider, "shopify")
+			)
+		)
+}
+
+// ============================================
+// Square Integration (BYOK)
+// ============================================
+
+export async function getWorkspaceSquareConfig() {
+	const workspace = await requireWorkspace()
+
+	const [integration] = await db
+		.select()
+		.from(schema.workspaceIntegrations)
+		.where(
+			and(
+				eq(schema.workspaceIntegrations.workspaceId, workspace.id),
+				eq(schema.workspaceIntegrations.provider, "square")
+			)
+		)
+		.limit(1)
+
+	if (!integration) {
+		return {
+			hasConfig: false,
+			applicationId: "",
+			accessToken: "",
+			locationId: "",
+			testMode: true,
+		}
+	}
+
+	const credentials = integration.credentials as {
+		apiKey?: string
+	} | null
+	const metadata = integration.metadata as {
+		applicationId?: string
+		locationId?: string
+		testMode?: boolean
+	} | null
+
+	return {
+		hasConfig: true,
+		applicationId: metadata?.applicationId || "",
+		accessToken: credentials?.apiKey || "",
+		locationId: metadata?.locationId || "",
+		testMode: metadata?.testMode ?? true,
+	}
+}
+
+export async function saveWorkspaceSquareConfig(config: {
+	applicationId: string
+	accessToken: string
+	locationId: string
+	testMode: boolean
+}) {
+	const workspace = await requireSettingsPermission()
+
+	const [existing] = await db
+		.select()
+		.from(schema.workspaceIntegrations)
+		.where(
+			and(
+				eq(schema.workspaceIntegrations.workspaceId, workspace.id),
+				eq(schema.workspaceIntegrations.provider, "square")
+			)
+		)
+		.limit(1)
+
+	const credentials = { apiKey: config.accessToken }
+	const metadata = {
+		applicationId: config.applicationId,
+		locationId: config.locationId,
+		testMode: config.testMode,
+	}
+
+	if (existing) {
+		await db
+			.update(schema.workspaceIntegrations)
+			.set({
+				credentials,
+				metadata,
+				updatedAt: new Date(),
+			})
+			.where(eq(schema.workspaceIntegrations.id, existing.id))
+	} else {
+		await db.insert(schema.workspaceIntegrations).values({
+			workspaceId: workspace.id,
+			provider: "square",
+			name: "Square Payments",
+			authType: "api_key",
+			credentials,
+			metadata,
+			isActive: true,
+		})
+	}
+}
+
+export async function deleteWorkspaceSquareConfig() {
+	const workspace = await requireSettingsPermission()
+
+	await db
+		.delete(schema.workspaceIntegrations)
+		.where(
+			and(
+				eq(schema.workspaceIntegrations.workspaceId, workspace.id),
+				eq(schema.workspaceIntegrations.provider, "square")
+			)
+		)
+}

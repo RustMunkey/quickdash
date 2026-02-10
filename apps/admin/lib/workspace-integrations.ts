@@ -110,6 +110,62 @@ export async function getReownCredentials(workspaceId: string): Promise<{
 }
 
 /**
+ * Get Shopify credentials from workspace integrations
+ */
+export async function getShopifyCredentials(workspaceId: string): Promise<{
+	storeDomain: string
+	storefrontToken: string
+	adminToken: string
+	mode: "sandbox" | "live"
+} | null> {
+	const integration = await getWorkspaceIntegration(workspaceId, "shopify")
+	if (!integration) return null
+
+	const credentials = integration.credentials as {
+		apiKey: string // storefrontToken
+		apiSecret: string // adminToken
+	}
+	const metadata = integration.metadata as { storeDomain?: string; testMode?: boolean }
+
+	if (!credentials?.apiKey || !metadata?.storeDomain) return null
+
+	return {
+		storeDomain: metadata.storeDomain,
+		storefrontToken: credentials.apiKey,
+		adminToken: credentials.apiSecret || "",
+		mode: metadata?.testMode !== false ? "sandbox" : "live",
+	}
+}
+
+/**
+ * Get Square credentials from workspace integrations
+ */
+export async function getSquareCredentials(workspaceId: string): Promise<{
+	applicationId: string
+	accessToken: string
+	locationId: string
+	mode: "sandbox" | "live"
+} | null> {
+	const integration = await getWorkspaceIntegration(workspaceId, "square")
+	if (!integration) return null
+
+	const credentials = integration.credentials as {
+		apiKey: string // applicationId
+		apiSecret: string // accessToken
+	}
+	const metadata = integration.metadata as { locationId?: string; testMode?: boolean }
+
+	if (!credentials?.apiKey || !credentials?.apiSecret) return null
+
+	return {
+		applicationId: credentials.apiKey,
+		accessToken: credentials.apiSecret,
+		locationId: metadata?.locationId || "",
+		mode: metadata?.testMode !== false ? "sandbox" : "live",
+	}
+}
+
+/**
  * Update the lastUsedAt timestamp for an integration
  */
 export async function markIntegrationUsed(integrationId: string) {

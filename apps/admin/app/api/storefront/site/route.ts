@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server"
 import { db } from "@quickdash/db/client"
-import { eq } from "@quickdash/db/drizzle"
-import { storeSettings, workspaces } from "@quickdash/db/schema"
+import { eq, and } from "@quickdash/db/drizzle"
+import { storeSettings, workspaces, workspaceIntegrations } from "@quickdash/db/schema"
 import { withStorefrontAuth, handleCorsOptions, type StorefrontContext } from "@/lib/storefront-auth"
 
 // Public settings that storefronts can access (matches admin settings keys)
@@ -239,6 +239,9 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 				enabled: s.maintenance_mode === "true",
 				message: s.maintenance_message || "We'll be back soon.",
 			},
+
+			// Payment methods (which providers are configured)
+			payments: await getPaymentMethods(storefront.workspaceId, s),
 		},
 	})
 }
@@ -253,6 +256,65 @@ function formatAddress(s: Record<string, string | null>): string | null {
 		s.address_country,
 	].filter(Boolean)
 	return parts.length > 0 ? parts.join(", ") : null
+}
+
+const PAYMENT_PROVIDERS = ["stripe", "paypal", "polar", "reown", "shopify", "square"] as const
+
+async function getPaymentMethods(workspaceId: string, s: Record<string, string | null>) {
+	const integrations = await db
+		.select({
+			provider: workspaceIntegrations.provider,
+			credentials: workspaceIntegrations.credentials,
+			metadata: workspaceIntegrations.metadata,
+		})
+		.from(workspaceIntegrations)
+		.where(
+			and(
+				eq(workspaceIntegrations.workspaceId, workspaceId),
+				eq(workspaceIntegrations.isActive, true)
+			)
+		)
+
+	const methods: Record<string, unknown>[] = []
+
+	for (const integration of integrations) {
+		const provider = integration.provider
+		if (!PAYMENT_PROVIDERS.includes(provider as any)) continue
+
+		const creds = integration.credentials as Record<string, any> | null
+		const meta = integration.metadata as Record<string, any> | null
+		if (!creds?.apiKey) continue
+
+		switch (provider) {
+			case "stripe":
+				if (s.pay_cards_enabled === "false") break
+				methods.push({ provider: "stripe", type: "cards", publishableKey: meta?.publishableKey || "" })
+				break
+			case "paypal":
+				if (s.pay_paypal === "false") break
+				methods.push({ provider: "paypal", type: "paypal", clientId: creds.apiKey, mode: meta?.testMode !== false ? "sandbox" : "live" })
+				break
+			case "polar":
+				methods.push({ provider: "polar", type: "fiat", mode: meta?.testMode !== false ? "sandbox" : "production" })
+				break
+			case "reown":
+				if (s.pay_crypto_enabled === "false") break
+				methods.push({ provider: "reown", type: "crypto", projectId: creds.apiKey, chains: meta?.chains ?? [] })
+				break
+			case "shopify":
+				methods.push({ provider: "shopify", type: "shopify" })
+				break
+			case "square":
+				methods.push({ provider: "square", type: "square", applicationId: creds.apiKey })
+				break
+		}
+	}
+
+	return {
+		methods,
+		currency: s.pay_default_currency || s.currency || "CAD",
+		acceptedCurrencies: s.pay_accepted_currencies ? JSON.parse(s.pay_accepted_currencies) : ["CAD", "USD"],
+	}
 }
 
 export const GET = withStorefrontAuth(handleGet)

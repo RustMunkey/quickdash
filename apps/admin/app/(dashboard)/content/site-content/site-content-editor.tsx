@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { MediaUploader, type MediaItem } from "@/components/media-uploader"
-import { updateSiteContent } from "../actions"
+import { bulkUpdateSiteContent, updateSiteContent } from "../actions"
 
 type ContentItem = {
 	id: string
@@ -69,7 +69,7 @@ function parseImageValue(value: string | null, isMulti: boolean): MediaItem[] {
 
 export function SiteContentEditor({ items }: { items: ContentItem[] }) {
 	const router = useRouter()
-	const [saving, setSaving] = useState<string | null>(null)
+	const [saving, setSaving] = useState(false)
 	const [values, setValues] = useState<Record<string, string>>(() => {
 		const map: Record<string, string> = {}
 		for (const item of items) {
@@ -88,16 +88,26 @@ export function SiteContentEditor({ items }: { items: ContentItem[] }) {
 		grouped[prefix].push(item)
 	}
 
-	const handleSave = async (key: string) => {
-		setSaving(key)
+	const getDirtyEntries = () => {
+		return items
+			.filter(item => values[item.key] !== (item.value || ""))
+			.map(item => ({ key: item.key, value: values[item.key] || "" }))
+	}
+
+	const hasDirty = getDirtyEntries().length > 0
+
+	const handleSaveAll = async () => {
+		const dirty = getDirtyEntries()
+		if (dirty.length === 0) return
+		setSaving(true)
 		try {
-			await updateSiteContent(key, values[key] || "")
+			await bulkUpdateSiteContent(dirty)
 			toast.success("Saved")
 			router.refresh()
 		} catch (e: any) {
 			toast.error(e.message || "Failed to save")
 		} finally {
-			setSaving(null)
+			setSaving(false)
 		}
 	}
 
@@ -129,10 +139,17 @@ export function SiteContentEditor({ items }: { items: ContentItem[] }) {
 
 	return (
 		<div className="space-y-6">
-			<div className="flex justify-end">
+			<div className="flex justify-end gap-2">
+				<Button
+					size="sm"
+					disabled={!hasDirty || saving}
+					onClick={handleSaveAll}
+				>
+					{saving ? "Saving..." : "Save Changes"}
+				</Button>
 				<Dialog open={newOpen} onOpenChange={setNewOpen}>
 					<DialogTrigger asChild>
-						<Button size="sm">New Content Entry</Button>
+						<Button size="sm" variant="outline">New Content Entry</Button>
 					</DialogTrigger>
 					<DialogContent>
 						<DialogHeader>
@@ -163,7 +180,6 @@ export function SiteContentEditor({ items }: { items: ContentItem[] }) {
 						{grouped[group].sort((a, b) => a.key.localeCompare(b.key)).map((item) => {
 							const colonIdx = item.key.indexOf(":")
 							const displayKey = colonIdx > 0 ? item.key.slice(colonIdx + 1) : item.key
-							const isDirty = values[item.key] !== (item.value || "")
 							const isImg = isImageKey(item.key) || item.type === "image" || isImageValue(item.value)
 							const isMulti = isMultiImageKey(item.key)
 
@@ -171,17 +187,7 @@ export function SiteContentEditor({ items }: { items: ContentItem[] }) {
 								const mediaItems = parseImageValue(values[item.key], isMulti)
 								return (
 									<div key={item.id} className="space-y-2">
-										<div className="flex items-center justify-between">
-											<Label className="text-sm font-medium">{displayKey}</Label>
-											<Button
-												size="sm"
-												variant={isDirty ? "default" : "outline"}
-												disabled={!isDirty || saving === item.key}
-												onClick={() => handleSave(item.key)}
-											>
-												{saving === item.key ? "..." : "Save"}
-											</Button>
-										</div>
+										<Label className="text-sm font-medium">{displayKey}</Label>
 										<MediaUploader
 											items={mediaItems}
 											onChange={(items) => handleImageChange(item.key, items, isMulti)}
@@ -208,14 +214,6 @@ export function SiteContentEditor({ items }: { items: ContentItem[] }) {
 											className="flex-1"
 										/>
 									)}
-									<Button
-										size="sm"
-										variant={isDirty ? "default" : "outline"}
-										disabled={!isDirty || saving === item.key}
-										onClick={() => handleSave(item.key)}
-									>
-										{saving === item.key ? "..." : "Save"}
-									</Button>
 								</div>
 							)
 						})}

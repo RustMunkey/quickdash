@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { checkWorkspacePermission } from "@/lib/workspace"
-import { getSettings } from "../actions"
+import { getSettings, getWorkspaceStripeConfig, getWorkspacePayPalConfig, getWorkspacePolarConfig, getWorkspaceReownConfig, getWorkspaceShopifyConfig, getWorkspaceSquareConfig } from "../actions"
 import { PaymentSettings } from "./payment-settings"
 
 export default async function PaymentsSettingsPage() {
@@ -9,11 +9,27 @@ export default async function PaymentsSettingsPage() {
 		redirect("/settings")
 	}
 
-	const settings = await getSettings("payments")
+	const [settings, workspaceStripe, workspacePayPal, workspacePolar, workspaceReown, workspaceShopify, workspaceSquare] = await Promise.all([
+		getSettings("payments"),
+		getWorkspaceStripeConfig(),
+		getWorkspacePayPalConfig(),
+		getWorkspacePolarConfig(),
+		getWorkspaceReownConfig(),
+		getWorkspaceShopifyConfig(),
+		getWorkspaceSquareConfig(),
+	])
 
 	return (
 		<div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-			<PaymentSettings settings={settings} />
+			<PaymentSettings
+				settings={settings}
+				workspaceStripe={workspaceStripe}
+				workspacePayPal={workspacePayPal}
+				workspacePolar={workspacePolar}
+				workspaceReown={workspaceReown}
+				workspaceShopify={workspaceShopify}
+				workspaceSquare={workspaceSquare}
+			/>
 		</div>
 	)
 }

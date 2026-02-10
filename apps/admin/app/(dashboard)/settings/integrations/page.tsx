@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { checkWorkspacePermission, requireWorkspace } from "@/lib/workspace"
-import { getSettings, getWorkspaceEmailConfig, getWorkspaceStripeConfig, getWorkspacePayPalConfig, getWorkspacePolarConfig, getWorkspaceReownConfig } from "../actions"
+import { getSettings, getWorkspaceEmailConfig } from "../actions"
 import { IntegrationsClient } from "./integrations-client"
 import { FeatureGatePage } from "@/components/feature-gate"
 
@@ -15,18 +15,14 @@ export default async function IntegrationsPage() {
 		redirect("/settings")
 	}
 
-	const [settings, workspaceEmail, workspaceStripe, workspacePayPal, workspacePolar, workspaceReown] = await Promise.all([
+	const [settings, workspaceEmail] = await Promise.all([
 		getSettings(),
 		getWorkspaceEmailConfig(),
-		getWorkspaceStripeConfig(),
-		getWorkspacePayPalConfig(),
-		getWorkspacePolarConfig(),
-		getWorkspaceReownConfig(),
 	])
 
 	return (
 		<div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-			<IntegrationsClient settings={settings} workspaceEmail={workspaceEmail} workspaceStripe={workspaceStripe} workspacePayPal={workspacePayPal} workspacePolar={workspacePolar} workspaceReown={workspaceReown} />
+			<IntegrationsClient settings={settings} workspaceEmail={workspaceEmail} />
 		</div>
 	)
 }

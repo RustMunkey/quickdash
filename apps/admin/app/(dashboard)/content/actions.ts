@@ -237,6 +237,27 @@ export async function updateSiteContent(key: string, value: string) {
 	}
 }
 
+export async function bulkUpdateSiteContent(entries: { key: string; value: string }[]) {
+	const workspace = await requireContentPermission()
+	for (const { key, value } of entries) {
+		const [existing] = await db
+			.select()
+			.from(schema.siteContent)
+			.where(and(eq(schema.siteContent.key, key), eq(schema.siteContent.workspaceId, workspace.id)))
+
+		if (existing) {
+			await db
+				.update(schema.siteContent)
+				.set({ value, updatedAt: new Date() })
+				.where(and(eq(schema.siteContent.key, key), eq(schema.siteContent.workspaceId, workspace.id)))
+		} else {
+			await db
+				.insert(schema.siteContent)
+				.values({ key, value, type: "text", workspaceId: workspace.id })
+		}
+	}
+}
+
 // --- MEDIA LIBRARY ---
 export async function getMediaItems(params?: { type?: string; folder?: string }) {
 	const workspace = await requireWorkspace()
