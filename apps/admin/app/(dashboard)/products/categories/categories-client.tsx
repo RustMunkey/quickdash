@@ -29,6 +29,7 @@ import { slugify } from "@/lib/format"
 import { createCategory, updateCategory, deleteCategory, bulkDeleteCategories } from "./actions"
 import { useDraft, type Draft } from "@/lib/use-draft"
 import { DraftIndicator, DraftStatus } from "@/components/drafts-manager"
+import { MediaUploader, type MediaItem } from "@/components/media-uploader"
 
 interface Category {
 	id: string
@@ -59,7 +60,7 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 	const [slug, setSlug] = useState("")
 	const [description, setDescription] = useState("")
 	const [parentId, setParentId] = useState("")
-	const [image, setImage] = useState("")
+	const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
 
 	// Draft support
 	type CategoryFormData = {
@@ -67,7 +68,7 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 		slug: string
 		description: string
 		parentId: string
-		image: string
+		mediaUrls: string[]
 	}
 
 	const {
@@ -86,9 +87,9 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 	// Auto-save draft when form data changes (only when creating new)
 	useEffect(() => {
 		if (dialogOpen && !editing && name) {
-			saveDraft({ name, slug, description, parentId, image })
+			saveDraft({ name, slug, description, parentId, mediaUrls: mediaItems.map((i) => i.url) })
 		}
-	}, [dialogOpen, editing, name, slug, description, parentId, image, saveDraft])
+	}, [dialogOpen, editing, name, slug, description, parentId, mediaItems, saveDraft])
 
 	function handleLoadDraft(draft: Draft) {
 		const data = draft.data as CategoryFormData
@@ -96,7 +97,9 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 		setSlug(data.slug || "")
 		setDescription(data.description || "")
 		setParentId(data.parentId || "")
-		setImage(data.image || "")
+		setMediaItems(
+			(data.mediaUrls || []).map((url) => ({ id: crypto.randomUUID(), url, type: "image" as const }))
+		)
 		loadDraft(draft)
 		setEditing(null)
 		setDialogOpen(true)
@@ -108,7 +111,7 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 		setSlug("")
 		setDescription("")
 		setParentId("")
-		setImage("")
+		setMediaItems([])
 		clearCurrentDraft()
 		setDialogOpen(true)
 	}
@@ -119,7 +122,7 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 		setSlug(cat.slug)
 		setDescription(cat.description ?? "")
 		setParentId(cat.parentId ?? "")
-		setImage(cat.image ?? "")
+		setMediaItems(cat.image ? [{ id: crypto.randomUUID(), url: cat.image, type: "image" as const }] : [])
 		setDialogOpen(true)
 	}
 
@@ -135,7 +138,7 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 				slug: slug.trim() || slugify(name),
 				description: description.trim(),
 				parentId: parentId || undefined,
-				image: image.trim() || undefined,
+				image: mediaItems[0]?.url || undefined,
 			}
 			if (editing) {
 				await updateCategory(editing.id, data)
@@ -180,20 +183,26 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 		}
 	}
 
-	// Get parent category names for display
 	const parentMap = new Map(categories.map((c) => [c.id, c.name]))
 
-	// Filter by parent
 	const filteredCategories = parentFilter === "all"
 		? categories
 		: parentFilter === "top-level"
 			? categories.filter((c) => !c.parentId)
 			: categories.filter((c) => c.parentId === parentFilter)
 
-	// Top-level categories for the filter dropdown
 	const topLevelCategories = categories.filter((c) => !c.parentId)
 
 	const columns: Column<Category>[] = [
+		{
+			key: "image",
+			header: "",
+			cell: (row) => row.image ? (
+				<img src={row.image} alt={row.name} className="h-8 w-8 rounded object-cover border" />
+			) : (
+				<div className="h-8 w-8 rounded border bg-muted" />
+			),
+		},
 		{
 			key: "name",
 			header: "Name",
@@ -264,10 +273,7 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 				emptyDescription="Create categories to organize your products."
 				filters={
 					<>
-						<Select
-							value={parentFilter}
-							onValueChange={setParentFilter}
-						>
+						<Select value={parentFilter} onValueChange={setParentFilter}>
 							<SelectTrigger className="h-9 w-full sm:w-[160px]">
 								<SelectValue placeholder="All Categories" />
 							</SelectTrigger>
@@ -280,10 +286,7 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 							</SelectContent>
 						</Select>
 						<div className="hidden sm:flex items-center gap-2">
-							<DraftIndicator
-								draftKey="category"
-								onSelect={handleLoadDraft}
-							/>
+							<DraftIndicator draftKey="category" onSelect={handleLoadDraft} />
 							<Button size="sm" className="h-9" onClick={openCreate}>Add Category</Button>
 						</div>
 					</>
@@ -296,11 +299,11 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 			/>
 
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-				<DialogContent>
+				<DialogContent className="max-w-lg">
 					<DialogHeader>
 						<DialogTitle>{editing ? "Edit Category" : "New Category"}</DialogTitle>
 					</DialogHeader>
-					<div className="space-y-4 py-4">
+					<div className="space-y-4 py-2">
 						<div className="space-y-2">
 							<Label htmlFor="cat-name">Name</Label>
 							<Input
@@ -321,11 +324,8 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 							<Input id="cat-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="cat-image">Image URL</Label>
-							<Input id="cat-image" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://..." />
-							{image && (
-								<img src={image} alt="Preview" className="h-20 w-20 rounded-lg object-cover border" />
-							)}
+							<Label>Image</Label>
+							<MediaUploader items={mediaItems} onChange={setMediaItems} maxItems={1} />
 						</div>
 						<div className="space-y-2">
 							<Label htmlFor="cat-parent">Parent Category</Label>

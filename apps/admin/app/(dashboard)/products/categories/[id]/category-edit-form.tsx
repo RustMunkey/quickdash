@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useBreadcrumbOverride } from "@/components/breadcrumb-context"
+import { MediaUploader, type MediaItem } from "@/components/media-uploader"
 import { updateCategory } from "../actions"
 
 interface Category {
@@ -33,7 +34,9 @@ export function CategoryEditForm({ category, categories }: Props) {
 	const [slug, setSlug] = useState(category.slug)
 	const [description, setDescription] = useState(category.description ?? "")
 	const [parentId, setParentId] = useState(category.parentId ?? "")
-	const [image, setImage] = useState(category.image ?? "")
+	const [mediaItems, setMediaItems] = useState<MediaItem[]>(
+		category.image ? [{ id: crypto.randomUUID(), url: category.image, type: "image" }] : []
+	)
 
 	const handleSave = async () => {
 		if (!name.trim()) {
@@ -47,7 +50,7 @@ export function CategoryEditForm({ category, categories }: Props) {
 				slug: slug.trim(),
 				description: description.trim(),
 				parentId: parentId || undefined,
-				image: image.trim() || undefined,
+				image: mediaItems[0]?.url || undefined,
 			})
 			toast.success("Category updated")
 			router.push("/products/categories")
@@ -74,6 +77,10 @@ export function CategoryEditForm({ category, categories }: Props) {
 				<Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
 			</div>
 			<div className="space-y-2">
+				<Label>Image</Label>
+				<MediaUploader items={mediaItems} onChange={setMediaItems} maxItems={1} />
+			</div>
+			<div className="space-y-2">
 				<Label htmlFor="parent">Parent Category</Label>
 				<Select value={parentId || "none"} onValueChange={(val) => setParentId(val === "none" ? "" : val)}>
 					<SelectTrigger className="w-full">
@@ -88,10 +95,6 @@ export function CategoryEditForm({ category, categories }: Props) {
 							))}
 					</SelectContent>
 				</Select>
-			</div>
-			<div className="space-y-2">
-				<Label htmlFor="image">Image URL</Label>
-				<Input id="image" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://..." />
 			</div>
 			<div className="flex gap-3 pt-4">
 				<Button onClick={handleSave} disabled={loading}>
