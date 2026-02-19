@@ -122,15 +122,25 @@ export async function getActiveWorkspace(): Promise<WorkspaceContext | null> {
 	const ownerTier = (result.ownerTier || "hobby") as SubscriptionTier
 	const tierLimits = TIER_LIMITS[ownerTier]
 
+	// Tier always wins — workspace row values may be stale from a previous tier.
+	// Use workspace overrides only when they are explicitly higher than the tier limit
+	// (e.g. a manually granted extra storefront slot), otherwise use the live tier value.
+	const resolveLimit = (wsValue: number | null, tierValue: number) => {
+		if (wsValue === null) return tierValue
+		if (tierValue === -1) return -1          // tier is unlimited, honour it
+		if (wsValue === -1) return -1            // manually set unlimited, honour it
+		return Math.max(wsValue, tierValue)      // take whichever is higher
+	}
+
 	return {
 		id: result.workspace.id,
 		name: result.workspace.name,
 		slug: result.workspace.slug,
 		ownerId: result.workspace.ownerId,
 		userId: user.id,
-		maxStorefronts: result.workspace.maxStorefronts ?? tierLimits.storefronts,
-		maxTeamMembers: result.workspace.maxTeamMembers ?? tierLimits.teamMembers,
-		features: result.workspace.features ?? tierLimits.features,
+		maxStorefronts: resolveLimit(result.workspace.maxStorefronts, tierLimits.storefronts),
+		maxTeamMembers: resolveLimit(result.workspace.maxTeamMembers, tierLimits.teamMembers),
+		features: { ...tierLimits.features, ...result.workspace.features },
 		role: result.member.role,
 		permissions: result.member.permissions ?? {},
 	}
@@ -302,15 +312,22 @@ export async function getWorkspaceById(workspaceId: string): Promise<WorkspaceCo
 	const ownerTier = (result.ownerTier || "hobby") as SubscriptionTier
 	const tierLimits = TIER_LIMITS[ownerTier]
 
+	const resolveLimit = (wsValue: number | null, tierValue: number) => {
+		if (wsValue === null) return tierValue
+		if (tierValue === -1) return -1
+		if (wsValue === -1) return -1
+		return Math.max(wsValue, tierValue)
+	}
+
 	return {
 		id: result.workspace.id,
 		name: result.workspace.name,
 		slug: result.workspace.slug,
 		ownerId: result.workspace.ownerId,
 		userId: user.id,
-		maxStorefronts: result.workspace.maxStorefronts ?? tierLimits.storefronts,
-		maxTeamMembers: result.workspace.maxTeamMembers ?? tierLimits.teamMembers,
-		features: result.workspace.features ?? tierLimits.features,
+		maxStorefronts: resolveLimit(result.workspace.maxStorefronts, tierLimits.storefronts),
+		maxTeamMembers: resolveLimit(result.workspace.maxTeamMembers, tierLimits.teamMembers),
+		features: { ...tierLimits.features, ...result.workspace.features },
 		role: result.member.role,
 		permissions: result.member.permissions ?? {},
 	}

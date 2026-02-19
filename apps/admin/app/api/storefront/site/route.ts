@@ -3,6 +3,7 @@ import { db } from "@quickdash/db/client"
 import { eq, and } from "@quickdash/db/drizzle"
 import { storeSettings, workspaces, workspaceIntegrations } from "@quickdash/db/schema"
 import { withStorefrontAuth, handleCorsOptions, type StorefrontContext } from "@/lib/storefront-auth"
+import { env } from "@/env"
 
 // Public settings that storefronts can access (matches admin settings keys)
 const PUBLIC_SETTING_KEYS = [
@@ -31,6 +32,14 @@ const PUBLIC_SETTING_KEYS = [
 	"seo_meta_title",
 	"seo_meta_description",
 	"seo_social_image",
+	"seo_keywords",
+	"seo_author",
+	"seo_og_title",
+	"seo_og_description",
+	"seo_og_image",
+	"seo_twitter_title",
+	"seo_twitter_description",
+	"seo_twitter_image",
 	// Social
 	"social_instagram",
 	"social_twitter",
@@ -199,6 +208,14 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 				title: s.seo_meta_title || s.store_name || workspace?.name || null,
 				description: s.seo_meta_description || null,
 				socialImage: s.seo_social_image || null,
+				keywords: s.seo_keywords || null,
+				author: s.seo_author || null,
+				openGraphTitle: s.seo_og_title || null,
+				openGraphDescription: s.seo_og_description || null,
+				openGraphImage: s.seo_og_image || s.seo_social_image || null,
+				twitterTitle: s.seo_twitter_title || null,
+				twitterDescription: s.seo_twitter_description || null,
+				twitterImage: s.seo_twitter_image || s.seo_social_image || null,
 			},
 
 			// Legal URLs
@@ -267,6 +284,13 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 			sandbox: {
 				enabled: s.sandbox_mode === "true",
 			},
+
+			// Pusher public credentials — safe to expose, secret stays server-side.
+			// Storefronts use these to initialize Pusher, then authenticate channels
+			// via POST /api/storefront/pusher/auth with their X-Storefront-Key.
+			pusher: env.PUSHER_KEY && env.PUSHER_CLUSTER
+				? { key: env.PUSHER_KEY, cluster: env.PUSHER_CLUSTER }
+				: null,
 
 			// Payment methods (which providers are configured)
 			payments: await getPaymentMethods(storefront.workspaceId, s),

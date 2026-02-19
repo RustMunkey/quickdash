@@ -73,6 +73,10 @@ export function AuthLayout({ children }: AuthLayoutProps) {
 				) : (
 					<div className="absolute inset-0 bg-gradient-to-br from-neutral-800 to-neutral-900" />
 				)}
+				{/* Logo overlay */}
+				<div className="absolute top-8 left-8 z-10">
+					<Image src="/quickdash.svg" alt="Quickdash" width={150} height={29} className="h-[29px] w-auto drop-shadow-lg" />
+				</div>
 				{/* Image indicators */}
 				{AUTH_IMAGES.length > 1 && (
 					<div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex gap-2.5">

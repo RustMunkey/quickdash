@@ -36,7 +36,7 @@ export function WorkspaceSidebarWrapper({ workspaces, activeWorkspaceId }: Works
 	if (isMobile) return null
 
 	return (
-		<div className="fixed top-0 left-0 z-50 h-screen overflow-visible">
+		<div className="fixed left-0 z-50 overflow-visible" style={{ top: "var(--mode-banner-height, 0px)", height: "calc(100vh - var(--mode-banner-height, 0px))" }}>
 			{mode === "messages" ? (
 				<ServersSidebar />
 			) : (
@@ -63,7 +63,7 @@ export function SidebarOffsetLayout({ children }: { children: React.ReactNode })
 		<SidebarOffsetContext.Provider value={offset}>
 			<div
 				className="flex flex-1 w-full min-h-svh transition-[padding] duration-200 ease-linear"
-				style={{ paddingLeft: offset }}
+				style={{ paddingLeft: offset, paddingTop: "var(--mode-banner-height, 0px)" }}
 			>
 				{children}
 			</div>

@@ -117,53 +117,134 @@ The goal: Gemsutopia is fully manageable from the Quickdash admin panel. Reese d
 
 ---
 
-## Phase 5: CMS Overhaul — Content Zones
-**Scope: Very Large (~1-2 weeks) | Saved for later**
+## Phase 5: CMS Overhaul — Headless Content Model
+**Scope: Large (~1 week) | Saved for later**
 
 ### The Problem
-Current CMS creates rigid `/pages/slug` and `/collections/slug` URLs. Users can't manage arbitrary content on any page (hero, nav, footer, testimonials, etc.). Collections are being abused as page-content containers with hacky convenience wrappers.
+Users can't manage all the content on their connected site from Quickdash. Collections work great for lists of things (FAQ, team members, gallery), but there's no clean way to manage one-off page content (hero heading, footer text, nav links) or link content across types (a blog post's author → a team member entry).
 
-### The Solution: Content Zones
-A **content zone** is a named region on any page that contains structured content blocks. Framework-agnostic, API-driven.
+### What We're NOT Building
+- **Not a website builder** — no drag-and-drop page layout, no visual editor
+- **Not Content Zones** (previous plan) — that couples content to pages, which is the frontend's job
+- Quickdash is a **headless CMS** — it stores structured content and serves it via API. The frontend decides what goes where.
 
-### 5A. New database schema
-```
-contentZones
-  - id, workspaceId
-  - pageKey (e.g. "home", "about", "*" for global zones like nav/footer)
-  - zoneKey (e.g. "hero", "testimonials", "faq", "navigation")
-  - schema (JSONB — reuse CollectionSchema from content-collections.ts)
-  - sortOrder, isActive, timestamps
+### Strategy: Enhance What Already Exists
+We already have 80% of a headless CMS. The system is:
+1. **Content Collections** (done) — user-defined structured content types with JSONB schemas
+2. **Site Content** (done) — key-value store for one-off content, grouped by prefix
+3. **Blog Posts + Site Pages** (done) — specialized content types
 
-contentBlocks
-  - id, zoneId, workspaceId
-  - data (JSONB — same as contentEntries.data)
-  - sortOrder, isActive, timestamps
-```
+What's missing is relational power, better API access, and richer field types.
 
-Global zones (`pageKey = "*"`) appear on every page (nav, footer, social links). Otherwise scoped to a specific page route.
+### 5A. Reference field type
+**Scope: Medium**
 
-### 5B. Admin UI
-- **New:** `apps/admin/app/(dashboard)/content/zones/` — page map + zone editor
-- Drag-and-drop block ordering, inline field editing (reuse field renderers from collections)
-- Page registration: manual or auto-discovered from connected site
+Add a `reference` field type to the collection schema system. A reference field points to entries in another collection.
 
-### 5C. Storefront API
-- `GET /api/storefront/content/:pageKey` — all zones + blocks for a page (merges global)
-- `GET /api/storefront/content/:pageKey/:zoneKey` — single zone
-- `GET /api/storefront/content/global` — all global zones
-
-### 5D. SDK
+**Schema change:**
 ```typescript
-client.content.forPage("home")        // all zones + blocks for home
-client.content.zone("home", "hero")   // just the hero zone
-client.content.global()               // nav, footer, socials
+// Add to FieldType union:
+type FieldType = "text" | "textarea" | ... | "reference"
+
+// Reference fields have extra config:
+type CollectionField = {
+  key: string
+  label: string
+  type: FieldType
+  required?: boolean
+  // ... existing fields ...
+  referenceCollection?: string  // slug of the target collection (for type="reference")
+  referenceMultiple?: boolean   // allow multiple references (default false)
+}
 ```
 
-### 5E. Gemsutopia migration
-- Migrate from collection-based content to content zones
-- Remove convenience wrapper hacks (`faq.list()`, `testimonials.list()`)
-- Every piece of content on gemsutopia.ca flows through content zones API
+**Data storage:** Reference fields store the target entry ID (or array of IDs) in the JSONB data.
+
+**Admin UI:**
+- Reference field renders as a searchable dropdown of entries from the target collection
+- Shows the entry's titleField as the display label
+- Multi-reference renders as a tag input
+
+**API response:** Reference fields are returned as IDs by default. Add `?expand=author,category` query param to inline the referenced entry data.
+
+**Files to modify:**
+- `packages/db/src/schema/content-collections.ts` — add type to FieldType union
+- `apps/admin/app/(dashboard)/content/collections/[slug]/field-renderer.tsx` — reference picker UI
+- `apps/admin/app/(dashboard)/content/collections/[slug]/schema-editor.tsx` — reference field config (pick target collection)
+- `apps/admin/app/api/storefront/collections/[slug]/route.ts` — expand query param support
+- `apps/admin/app/(dashboard)/content/collections/actions.ts` — entry lookup for reference picker
+
+### 5B. Content bundle endpoint
+**Scope: Small**
+
+One API call to fetch multiple collections at once — so a frontend can get a page's worth of content in a single request instead of N requests.
+
+**New endpoint:** `GET /api/storefront/content/bundle`
+- Query: `?collections=hero-slides,testimonials,featured-products`
+- Optional: `?collections=hero-slides:3,testimonials:5` (with per-collection limits)
+- Response:
+```json
+{
+  "hero-slides": { "collection": {...}, "entries": [...] },
+  "testimonials": { "collection": {...}, "entries": [...] },
+  "featured-products": { "collection": {...}, "entries": [...] }
+}
+```
+
+**File:** `apps/admin/app/api/storefront/content/bundle/route.ts`
+
+### 5C. Site content storefront API
+**Scope: Small**
+
+Expose the key-value `site_content` table to storefronts via API, grouped by prefix.
+
+**New endpoint:** `GET /api/storefront/site/content`
+- Returns all site content entries grouped by prefix (text before the colon)
+- Response:
+```json
+{
+  "hero": { "heading": "...", "subheading": "...", "image": "https://..." },
+  "footer": { "text": "...", "copyright": "..." },
+  "nav": { "items": "[{\"label\":\"Home\",\"href\":\"/\"}]" }
+}
+```
+
+**Optional:** `GET /api/storefront/site/content/:prefix` — just one group
+
+**File:** `apps/admin/app/api/storefront/site/content/route.ts`
+
+### 5D. Rich text field type
+**Scope: Medium (defer after 5A-5C)**
+
+Add a `richtext` field type that stores structured content as JSON (TipTap/ProseMirror format) or HTML. This replaces the current plain textarea for content that needs formatting, embedded images, links.
+
+Not urgent — textarea + markdown works fine for v1. Revisit when template developers need it.
+
+### 5E. SDK methods
+```typescript
+// Bundle fetch — one call for a page's content
+client.content.bundle(["hero-slides", "testimonials", "featured-products"])
+
+// Site content — global key-value content
+client.site.content()                 // all groups
+client.site.content("hero")          // just hero group
+
+// Collections — already exists, enhanced with expand
+client.collections.list("team", { expand: ["department"] })
+```
+
+### 5F. Execution order
+```
+5A (Reference fields)      — adds relational power
+    ↓
+5B (Bundle endpoint)       — one-call page content
+    ↓
+5C (Site content API)      — expose globals to storefronts
+    ↓
+5D (Rich text)             — defer, not blocking
+```
+
+5A-5C can ship incrementally. Each is independently useful.
 
 ---
 
@@ -171,7 +252,7 @@ client.content.global()               // nav, footer, socials
 **Scope: Large | Depends on Phase 3 + 5**
 
 - Framework-agnostic templates (Next.js, Svelte, Angular, vanilla HTML/JS) pre-wired with SDK
-- Templates ship with predefined content zones that auto-populate
+- Templates ship with predefined collections + site content keys that auto-populate on install
 - Marketplace in `apps/web`
 - Payment via Polar
 - One template per framework to prove cross-framework compatibility
@@ -202,7 +283,7 @@ Phase 6 (Template Store)        — after Phase 3 + 5
 - **Phase 2:** `app.quickdash.net/signup` → redirects to `quickdash.net/signup`. Any admin route without session → `/login`.
 - **Phase 3:** Sign up at `quickdash.net/signup` → onboard → land on `app.quickdash.net` with session intact.
 - **Phase 4:** Browse gemsutopia.ca → add to cart → checkout with Stripe/Polar/Reown → order appears in Gemsutopia workspace. All content comes from admin, no hardcoded text.
-- **Phase 5:** Edit "hero" zone in admin → `GET /api/storefront/content/home/hero` → updated content on gemsutopia.ca.
+- **Phase 5:** Create "Team" collection with reference field to "Departments" → API returns expanded data. Bundle endpoint returns multiple collections in one call. Site content API returns grouped key-value content.
 
 ---
 ---

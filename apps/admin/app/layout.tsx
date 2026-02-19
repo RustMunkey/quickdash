@@ -25,6 +25,9 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
 	title: "Admin",
 	description: "Administration panel.",
+	icons: {
+		icon: "/quickdash-logo.svg",
+	},
 };
 
 export default function AdminLayout({

@@ -1,11 +1,7 @@
-import type { NextConfig } from "next"
-import { withSentryConfig } from "@sentry/nextjs"
+import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {}
+const nextConfig: NextConfig = {
+  /* config options here */
+};
 
-export default withSentryConfig(nextConfig, {
-	org: "quickdash",
-	project: "quickdash-web",
-	silent: !process.env.CI,
-	widenClientFileUpload: true,
-})
+export default nextConfig;
