@@ -293,6 +293,7 @@ export default function Page() {
       {/* Curved Loop */}
       <section className="bg-background">
         <CurvedLoop
+          className=""
           marqueeText="PAYMENTS ✦ ORDERS ✦ CONTENT ✦ TEMPLATES ✦ AUTH ✦ EMAIL ✦ "
           speed={2}
           curveAmount={200}

@@ -434,7 +434,7 @@ function FormExample() {
                   <ComboboxContent>
                     <ComboboxEmpty>No frameworks found.</ComboboxEmpty>
                     <ComboboxList>
-                      {(item) => (
+                      {(item: string) => (
                         <ComboboxItem key={item} value={item}>
                           {item}
                         </ComboboxItem>
