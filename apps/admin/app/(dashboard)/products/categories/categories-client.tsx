@@ -30,6 +30,7 @@ import { createCategory, updateCategory, deleteCategory, bulkDeleteCategories } 
 import { useDraft, type Draft } from "@/lib/use-draft"
 import { DraftIndicator, DraftStatus } from "@/components/drafts-manager"
 import { MediaUploader, type MediaItem } from "@/components/media-uploader"
+import { Switch } from "@/components/ui/switch"
 
 interface Category {
 	id: string
@@ -39,6 +40,7 @@ interface Category {
 	parentId: string | null
 	sortOrder: number | null
 	image: string | null
+	isFeatured: boolean | null
 }
 
 interface CategoriesClientProps {
@@ -60,6 +62,7 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 	const [slug, setSlug] = useState("")
 	const [description, setDescription] = useState("")
 	const [parentId, setParentId] = useState("")
+	const [isFeatured, setIsFeatured] = useState(false)
 	const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
 
 	// Draft support
@@ -111,6 +114,7 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 		setSlug("")
 		setDescription("")
 		setParentId("")
+		setIsFeatured(false)
 		setMediaItems([])
 		clearCurrentDraft()
 		setDialogOpen(true)
@@ -122,6 +126,7 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 		setSlug(cat.slug)
 		setDescription(cat.description ?? "")
 		setParentId(cat.parentId ?? "")
+		setIsFeatured(cat.isFeatured ?? false)
 		setMediaItems(cat.image ? [{ id: crypto.randomUUID(), url: cat.image, type: "image" as const }] : [])
 		setDialogOpen(true)
 	}
@@ -139,6 +144,7 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 				description: description.trim(),
 				parentId: parentId || undefined,
 				image: mediaItems[0]?.url || undefined,
+				isFeatured,
 			}
 			if (editing) {
 				await updateCategory(editing.id, data)
@@ -197,10 +203,14 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 		{
 			key: "image",
 			header: "",
-			cell: (row) => row.image ? (
-				<img src={row.image} alt={row.name} className="h-8 w-8 rounded object-cover border" />
-			) : (
-				<div className="h-8 w-8 rounded border bg-muted" />
+			cell: (row) => (
+				<div className="w-8 h-8 rounded bg-muted flex items-center justify-center overflow-hidden">
+					{row.image ? (
+						<img src={row.image} alt={row.name} className="w-full h-full object-cover" />
+					) : (
+						<span className="text-xs text-muted-foreground">—</span>
+					)}
+				</div>
 			),
 		},
 		{
@@ -326,6 +336,13 @@ export function CategoriesClient({ categories, totalCount, currentPage }: Catego
 						<div className="space-y-2">
 							<Label>Image</Label>
 							<MediaUploader items={mediaItems} onChange={setMediaItems} maxItems={1} />
+						</div>
+						<div className="flex items-center justify-between">
+							<div>
+								<Label className="text-sm">Featured</Label>
+								<p className="text-xs text-muted-foreground">Show on storefront homepage</p>
+							</div>
+							<Switch checked={isFeatured} onCheckedChange={setIsFeatured} />
 						</div>
 						<div className="space-y-2">
 							<Label htmlFor="cat-parent">Parent Category</Label>

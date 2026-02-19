@@ -8,6 +8,7 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 	const { searchParams } = new URL(request.url)
 	const includeCount = searchParams.get("count") === "true"
 	const parentOnly = searchParams.get("parent_only") === "true"
+	const featuredOnly = searchParams.get("featured") === "true"
 
 	// Build conditions
 	const conditions = [
@@ -16,6 +17,10 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 
 	if (parentOnly) {
 		conditions.push(isNull(categories.parentId))
+	}
+
+	if (featuredOnly) {
+		conditions.push(eq(categories.isFeatured, true))
 	}
 
 	// Get categories with optional product count
@@ -29,6 +34,7 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 				image: categories.image,
 				parentId: categories.parentId,
 				sortOrder: categories.sortOrder,
+				isFeatured: categories.isFeatured,
 				productCount: sql<number>`(
 					SELECT COUNT(*) FROM products
 					WHERE products.category_id = ${categories.id}
@@ -48,6 +54,7 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 				image: c.image,
 				parentId: c.parentId,
 				sortOrder: c.sortOrder,
+				isFeatured: c.isFeatured,
 				productCount: Number(c.productCount),
 			})),
 		})
@@ -62,6 +69,7 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 			image: categories.image,
 			parentId: categories.parentId,
 			sortOrder: categories.sortOrder,
+			isFeatured: categories.isFeatured,
 		})
 		.from(categories)
 		.where(and(...conditions))

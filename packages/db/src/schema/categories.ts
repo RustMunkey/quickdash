@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, integer, index } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, integer, boolean, index } from "drizzle-orm/pg-core";
 import { workspaces } from "./workspaces";
 
 export const categories = pgTable(
@@ -12,6 +12,7 @@ export const categories = pgTable(
 		parentId: uuid("parent_id"),
 		sortOrder: integer("sort_order").default(0),
 		image: text("image"),
+		isFeatured: boolean("is_featured").default(false),
 	},
 	(table) => [
 		index("categories_workspace_idx").on(table.workspaceId),

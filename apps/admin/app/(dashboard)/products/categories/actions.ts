@@ -58,6 +58,7 @@ interface CategoryData {
 	parentId?: string
 	sortOrder?: number
 	image?: string
+	isFeatured?: boolean
 }
 
 export async function createCategory(data: CategoryData) {
@@ -75,6 +76,7 @@ export async function createCategory(data: CategoryData) {
 			parentId: data.parentId || null,
 			sortOrder: data.sortOrder ?? 0,
 			image: data.image || null,
+		isFeatured: data.isFeatured ?? false,
 		})
 		.returning()
 
@@ -98,6 +100,7 @@ export async function updateCategory(id: string, data: Partial<CategoryData>) {
 	if (data.parentId !== undefined) updates.parentId = data.parentId || null
 	if (data.sortOrder !== undefined) updates.sortOrder = data.sortOrder
 	if (data.image !== undefined) updates.image = data.image || null
+	if (data.isFeatured !== undefined) updates.isFeatured = data.isFeatured
 
 	const [category] = await db
 		.update(categories)
