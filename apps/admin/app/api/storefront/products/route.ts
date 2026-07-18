@@ -1,15 +1,15 @@
-import { type NextRequest } from "next/server"
+import type { NextRequest } from "next/server"
 import { db } from "@quickdash/db/client"
-import { eq, and, desc, asc, ilike, sql } from "@quickdash/db/drizzle"
-import { products, categories, productVariants } from "@quickdash/db/schema"
+import { eq, and, desc, asc, ilike, sql, inArray } from "@quickdash/db/drizzle"
+import { products, categories, productVariants, inventory } from "@quickdash/db/schema"
 import { withStorefrontAuth, handleCorsOptions, type StorefrontContext } from "@/lib/storefront-auth"
 
 async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 	const { searchParams } = new URL(request.url)
 
 	// Pagination
-	const page = Math.max(1, parseInt(searchParams.get("page") || "1"))
-	const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")))
+	const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
+	const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)))
 	const offset = (page - 1) * limit
 
 	// Filters
@@ -103,6 +103,46 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 
 	const totalCount = Number(countResult.count)
 	const totalPages = Math.ceil(totalCount / limit)
+	const productIds = items.map((item) => item.id)
+	const variantRows = productIds.length > 0
+		? await db
+			.select({
+				id: productVariants.id,
+				productId: productVariants.productId,
+				name: productVariants.name,
+				sku: productVariants.sku,
+				price: productVariants.price,
+				attributes: productVariants.attributes,
+			})
+			.from(productVariants)
+			.where(and(
+				inArray(productVariants.productId, productIds),
+				eq(productVariants.isActive, true)
+			))
+		: []
+	const variantIds = variantRows.map((variant) => variant.id)
+	const inventoryRows = storefront.permissions.inventory && variantIds.length > 0
+		? await db
+			.select({
+				variantId: inventory.variantId,
+				quantity: inventory.quantity,
+				reservedQuantity: inventory.reservedQuantity,
+			})
+			.from(inventory)
+			.where(inArray(inventory.variantId, variantIds))
+		: []
+	const variantsByProduct = new Map<string, typeof variantRows>()
+	for (const variant of variantRows) {
+		const existing = variantsByProduct.get(variant.productId) ?? []
+		existing.push(variant)
+		variantsByProduct.set(variant.productId, existing)
+	}
+	const availableByVariant = new Map(
+		inventoryRows.map((row) => [
+			row.variantId,
+			Math.max(0, row.quantity - row.reservedQuantity),
+		])
+	)
 
 	// Helper to check if sale is active
 	const now = new Date()
@@ -135,6 +175,19 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 				? { id: p.categoryId, name: p.categoryName, slug: p.categorySlug }
 				: null,
 			tags: p.tags,
+			variants: (variantsByProduct.get(p.id) ?? []).map((variant) => ({
+				id: variant.id,
+				name: variant.name,
+				sku: variant.sku,
+				price: variant.price,
+				attributes: variant.attributes,
+			})),
+			stock: storefront.permissions.inventory
+				? (variantsByProduct.get(p.id) ?? []).map((variant) => ({
+					variantId: variant.id,
+					quantity: availableByVariant.get(variant.id) ?? 0,
+				}))
+				: null,
 			createdAt: p.createdAt,
 		})),
 		pagination: {

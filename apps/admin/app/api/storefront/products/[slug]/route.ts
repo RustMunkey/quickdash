@@ -1,4 +1,4 @@
-import { type NextRequest } from "next/server"
+import type { NextRequest } from "next/server"
 import { db } from "@quickdash/db/client"
 import { eq, and, inArray } from "@quickdash/db/drizzle"
 import { products, categories, productVariants, inventory } from "@quickdash/db/schema"
@@ -11,7 +11,7 @@ function isUUID(str: string): boolean {
 }
 
 async function handleGet(
-	request: NextRequest,
+	_request: NextRequest,
 	storefront: StorefrontContext,
 	{ params }: { params: Promise<{ slug: string }> }
 ) {
@@ -30,6 +30,9 @@ async function handleGet(
 			shortDescription: products.shortDescription,
 			price: products.price,
 			compareAtPrice: products.compareAtPrice,
+			salePrice: products.salePrice,
+			saleStartsAt: products.saleStartsAt,
+			saleEndsAt: products.saleEndsAt,
 			images: products.images,
 			thumbnail: products.thumbnail,
 			isSubscribable: products.isSubscribable,
@@ -59,6 +62,13 @@ async function handleGet(
 		return storefrontError("Product not found", 404)
 	}
 
+	const now = new Date()
+	const onSale = Boolean(
+		product.salePrice
+		&& (!product.saleStartsAt || product.saleStartsAt <= now)
+		&& (!product.saleEndsAt || product.saleEndsAt >= now)
+	)
+
 	// Get variants
 	const variants = await db
 		.select({
@@ -84,13 +94,14 @@ async function handleGet(
 			.select({
 				variantId: inventory.variantId,
 				quantity: inventory.quantity,
+				reservedQuantity: inventory.reservedQuantity,
 			})
 			.from(inventory)
 			.where(inArray(inventory.variantId, variantIds))
 
 		stock = inventoryData.map((i) => ({
 			variantId: i.variantId,
-			quantity: i.quantity,
+			quantity: Math.max(0, i.quantity - i.reservedQuantity),
 		}))
 	}
 
@@ -103,6 +114,11 @@ async function handleGet(
 			shortDescription: product.shortDescription,
 			price: product.price,
 			compareAtPrice: product.compareAtPrice,
+			salePrice: product.salePrice,
+			saleStartsAt: product.saleStartsAt,
+			saleEndsAt: product.saleEndsAt,
+			currentPrice: onSale ? product.salePrice : product.price,
+			onSale,
 			images: product.images,
 			thumbnail: product.thumbnail,
 			isSubscribable: product.isSubscribable,

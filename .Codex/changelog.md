@@ -1,5 +1,42 @@
 # Quickdash Changelog - Codex Session Log
 
+## Session - 2026-07-17 - Gemsutopia Storefront Inventory Contract
+
+### Completed
+- Fixed the storefront product-list endpoint so it returns active variants and optional inventory instead of omitting both fields.
+- Fixed storefront stock values to report available quantity (`quantity - reservedQuantity`) rather than inventory that has already been reserved by pending orders.
+- Fixed the single-product endpoint so it returns the same sale fields, computed current price, and sale status as the product-list endpoint.
+- Added editable Products, Orders, Customers, Checkout, and Inventory permission switches to Storefront settings; changing permissions retains the existing storefront API key.
+- Closed the zero-variant inventory hole in product creation: every new simple product now receives a default active variant and inventory row automatically.
+- Added a Stock quantity field for new products and existing products that have no variants. Saving a legacy zero-variant product creates its default inventory variant.
+- Added `workspaceId` to inventory rows created through the manual Add Variant action.
+- Normalized inventory writes to non-negative whole quantities.
+
+### Files Changed
+- `apps/admin/app/api/storefront/products/route.ts`
+- `apps/admin/app/api/storefront/products/[slug]/route.ts`
+- `apps/admin/app/(dashboard)/settings/storefronts/storefronts-client.tsx`
+- `apps/admin/app/(dashboard)/products/actions.ts`
+- `apps/admin/app/(dashboard)/products/[id]/product-form.tsx`
+- `.Codex/changelog.md`
+
+### Findings
+- The connected Gemsutopia product currently has no variants, so Quickdash has no inventory row from which to publish stock.
+- Storefront inventory access defaults to disabled. The Gemsutopia storefront must have its new Inventory switch enabled before stock is included in authenticated storefront responses.
+- These local Quickdash changes will not affect `https://app.quickdash.net` until Quickdash is deployed.
+- Gemsutopia can consume the new list/detail variant and stock fields without rotating or exposing a new API key.
+
+### Verification
+- Focused admin TypeScript check passed using a temporary config that excludes stale generated `.next` route types.
+- Focused Biome lint passed for all five changed application files.
+- The normal admin TypeScript command remains obstructed only by pre-existing stale `.next/types/validator.ts` route errors; the changed files themselves type-check cleanly.
+
+### What's Next
+- Deploy Quickdash.
+- In Quickdash Storefront settings, enable Inventory for the existing Gemsutopia storefront without regenerating its key.
+- Open the existing Gemsutopia product in Quickdash, enter its real stock quantity, and save once to create its default variant/inventory record.
+- Re-run the Gemsutopia product list, product detail, cart, and PayPal checkout smoke tests against deployed Quickdash.
+
 ## Session - 2026-06-26
 
 ### Completed

@@ -35,7 +35,6 @@ import {
 	updateStorefront,
 	deleteStorefront,
 	regenerateApiKey,
-	getApiSecret,
 } from "./actions"
 
 type Storefront = {
@@ -176,6 +175,7 @@ function CreateStorefrontDialog({ children }: { children: React.ReactNode }) {
 function StorefrontCard({ storefront }: { storefront: Storefront }) {
 	const router = useRouter()
 	const [deleting, setDeleting] = React.useState(false)
+	const [savingPermission, setSavingPermission] = React.useState<string | null>(null)
 
 	const toggleActive = async () => {
 		await updateStorefront(storefront.id, { isActive: !storefront.isActive })
@@ -198,6 +198,25 @@ function StorefrontCard({ storefront }: { storefront: Storefront }) {
 		customers: true,
 		checkout: true,
 		inventory: false,
+	}
+	const permissionLabels: Record<keyof typeof permissions, string> = {
+		products: "Products",
+		orders: "Orders",
+		customers: "Customers",
+		checkout: "Checkout",
+		inventory: "Inventory",
+	}
+
+	const togglePermission = async (permission: keyof typeof permissions, enabled: boolean) => {
+		setSavingPermission(permission)
+		try {
+			await updateStorefront(storefront.id, {
+				permissions: { ...permissions, [permission]: enabled },
+			})
+			router.refresh()
+		} finally {
+			setSavingPermission(null)
+		}
 	}
 
 	return (
@@ -226,12 +245,17 @@ function StorefrontCard({ storefront }: { storefront: Storefront }) {
 
 				<div>
 					<Label className="text-xs text-muted-foreground mb-2 block">Permissions</Label>
-					<div className="flex flex-wrap gap-1">
-						{permissions.products && <Badge variant="outline">Products</Badge>}
-						{permissions.orders && <Badge variant="outline">Orders</Badge>}
-						{permissions.customers && <Badge variant="outline">Customers</Badge>}
-						{permissions.checkout && <Badge variant="outline">Checkout</Badge>}
-						{permissions.inventory && <Badge variant="outline">Inventory</Badge>}
+					<div className="grid gap-2 sm:grid-cols-2">
+						{(Object.keys(permissions) as Array<keyof typeof permissions>).map((permission) => (
+							<div key={permission} className="flex items-center justify-between rounded-md border px-3 py-2">
+								<span className="text-sm">{permissionLabels[permission]}</span>
+								<Switch
+									checked={permissions[permission]}
+									disabled={savingPermission !== null}
+									onCheckedChange={(enabled) => togglePermission(permission, enabled)}
+								/>
+							</div>
+						))}
 					</div>
 				</div>
 
