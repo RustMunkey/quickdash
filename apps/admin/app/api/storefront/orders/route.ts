@@ -1,23 +1,32 @@
-import { type NextRequest } from "next/server"
+import type { NextRequest } from "next/server"
 import { db } from "@quickdash/db/client"
 import { eq, and, desc, sql } from "@quickdash/db/drizzle"
 import { orders, orderItems, payments } from "@quickdash/db/schema"
 import { withStorefrontAuth, storefrontError, storefrontJson, handleCorsOptions, getWorkspaceSiteMode, type StorefrontContext } from "@/lib/storefront-auth"
 import { generateOrderNumber, buildOrderConfirmationEmail } from "@/lib/order-utils"
 import { sendEmail } from "@/lib/send-email"
+import { extractBearerToken, verifyCustomerToken } from "@/lib/storefront-jwt"
+
+async function getAuthenticatedCustomerId(request: NextRequest, storefront: StorefrontContext) {
+	const token = extractBearerToken(request.headers.get("Authorization"))
+	if (!token) return null
+	const payload = await verifyCustomerToken(token)
+	if (!payload || payload.storefrontId !== storefront.id) return null
+	return payload.sub
+}
 
 // ─── GET: List orders for a customer ───
 
 async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 	const { searchParams } = new URL(request.url)
 
-	const customerId = searchParams.get("customer_id")
+	const customerId = await getAuthenticatedCustomerId(request, storefront)
 	if (!customerId) {
-		return storefrontError("customer_id query parameter is required", 400)
+		return storefrontError("Customer authentication is required", 401)
 	}
 
-	const page = Math.max(1, parseInt(searchParams.get("page") || "1"))
-	const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "10")))
+	const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
+	const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "10", 10)))
 	const offset = (page - 1) * limit
 	const status = searchParams.get("status")
 
@@ -41,11 +50,13 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 				total: orders.total,
 				trackingNumber: orders.trackingNumber,
 				trackingUrl: orders.trackingUrl,
+				currency: payments.currency,
 				createdAt: orders.createdAt,
 				shippedAt: orders.shippedAt,
 				deliveredAt: orders.deliveredAt,
 			})
 			.from(orders)
+			.leftJoin(payments, eq(payments.orderId, orders.id))
 			.where(and(...conditions))
 			.orderBy(desc(orders.createdAt))
 			.limit(limit)
@@ -146,6 +157,7 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 	}
 
 	const { customer, shippingAddress, items, payment, totals, discountCode, metadata } = body
+	const authenticatedCustomerId = await getAuthenticatedCustomerId(request, storefront)
 
 	// Validate required fields
 	if (!customer?.email) return storefrontError("customer.email is required", 400)
@@ -162,7 +174,7 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 		.values({
 			workspaceId: storefront.workspaceId,
 			orderNumber,
-			userId: null, // Guest order — customer info in metadata
+			userId: authenticatedCustomerId,
 			status: "confirmed",
 			subtotal: totals.subtotal.toFixed(2),
 			discountAmount: (totals.discount || 0).toFixed(2),
