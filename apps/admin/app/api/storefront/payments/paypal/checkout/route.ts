@@ -2,22 +2,22 @@ import type { NextRequest } from "next/server"
 import { withStorefrontAuth, storefrontError, handleCorsOptions, type StorefrontContext } from "@/lib/storefront-auth"
 import { getPayPalCredentials } from "@/lib/workspace-integrations"
 import { getPayPalAccessToken, getPayPalBaseUrl, type PayPalCredentials } from "@/lib/paypal"
+import { createCheckoutQuote } from "@/lib/storefront-checkout-quote"
 
 type PayPalOrderItem = {
-	name: string
+	variantId: string
 	quantity: number
-	unitAmount: number // in dollars
-	description?: string
 }
 
 type CreateOrderInput = {
 	items: PayPalOrderItem[]
-	currency?: string
 	successUrl: string
 	cancelUrl: string
-	shippingAmount?: number
-	discountAmount?: number
-	metadata?: Record<string, string>
+	country: string
+	state?: string
+	discountCode?: string
+	customerEmail?: string
+	checkoutAttemptId?: string
 }
 
 type CaptureOrderInput = {
@@ -41,48 +41,50 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 	if ("orderId" in body) {
 		return captureOrder(body as CaptureOrderInput, creds)
 	}
-	return createOrder(body as CreateOrderInput, creds)
+	return createOrder(body as CreateOrderInput, creds, storefront)
 }
 
 async function createOrder(
 	body: CreateOrderInput,
-	creds: PayPalCredentials
+	creds: PayPalCredentials,
+	storefront: StorefrontContext
 ) {
-	const { items, currency = "USD", successUrl, cancelUrl, shippingAmount, discountAmount, metadata } = body
+	const { items, successUrl, cancelUrl, country, state, discountCode, customerEmail, checkoutAttemptId } = body
 
-	if (!items?.length || !successUrl || !cancelUrl) {
-		return storefrontError("Missing required fields: items, successUrl, cancelUrl", 400)
+	if (!items?.length || !successUrl || !cancelUrl || !country) {
+		return storefrontError("Missing required checkout fields", 400)
 	}
 
 	try {
+		const quote = await createCheckoutQuote(storefront.workspaceId, {
+			items,
+			country,
+			state,
+			discountCode,
+			customerEmail,
+		})
 		const accessToken = await getPayPalAccessToken(creds)
 		const baseUrl = getPayPalBaseUrl(creds.mode)
 
-		// Calculate totals
-		const itemTotal = items.reduce((sum, item) => sum + item.unitAmount * item.quantity, 0)
-		const shipping = shippingAmount || 0
-		const discount = discountAmount || 0
-		const total = itemTotal + shipping - discount
-
 		const purchaseUnit: Record<string, unknown> = {
-			...(metadata?.checkoutAttemptId ? { custom_id: metadata.checkoutAttemptId } : {}),
+			...(checkoutAttemptId ? { custom_id: checkoutAttemptId } : {}),
 			amount: {
-				currency_code: currency.toUpperCase(),
-				value: total.toFixed(2),
+				currency_code: quote.currency,
+				value: quote.total.toFixed(2),
 				breakdown: {
-					item_total: { currency_code: currency.toUpperCase(), value: itemTotal.toFixed(2) },
-					shipping: { currency_code: currency.toUpperCase(), value: shipping.toFixed(2) },
-					discount: { currency_code: currency.toUpperCase(), value: discount.toFixed(2) },
+					item_total: { currency_code: quote.currency, value: quote.subtotal.toFixed(2) },
+					shipping: { currency_code: quote.currency, value: quote.shippingAmount.toFixed(2) },
+					discount: { currency_code: quote.currency, value: quote.discountAmount.toFixed(2) },
 				},
 			},
-			items: items.map((item) => ({
+			items: quote.items.map((item) => ({
 				name: item.name,
 				quantity: String(item.quantity),
+				sku: item.variantId,
 				unit_amount: {
-					currency_code: currency.toUpperCase(),
+					currency_code: quote.currency,
 					value: item.unitAmount.toFixed(2),
 				},
-				...(item.description && { description: item.description }),
 			})),
 		}
 
@@ -119,6 +121,7 @@ async function createOrder(
 			orderId: order.id,
 			approveUrl: approveLink?.href || null,
 			status: order.status,
+			quote,
 		})
 	} catch (error) {
 		console.error("PayPal create order error:", error)

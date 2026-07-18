@@ -324,3 +324,30 @@
 
 ### What's Next
 - Deploy Quickdash and sign in with the credentials from the first registration attempt before trying to register another account.
+
+## Authoritative Checkout Quoting — 2026-07-18
+
+### Completed
+- Moved PayPal checkout quoting behind the Quickdash trust boundary.
+- Quickdash now reloads active variants, database prices, and available inventory before creating a PayPal order.
+- Shipping is recalculated from active workspace zones/rates and the configured free-shipping threshold.
+- Normal discount and referral codes are recalculated against the authoritative subtotal.
+- PayPal line items now carry Quickdash variant IDs and use the workspace currency.
+- Order finalization compares variant IDs, quantities, unit prices, total, and currency against PayPal's server response.
+- Stored orders, order items, and confirmation emails now use PayPal-verified money rather than browser-submitted totals.
+- Existing payment idempotency and atomic inventory decrements remain in place, including manual review when stock changes after capture.
+
+### Files Changed
+- `apps/admin/lib/storefront-checkout-quote.ts`
+- `apps/admin/app/api/storefront/payments/paypal/checkout/route.ts`
+- `apps/admin/app/api/storefront/orders/route.ts`
+- `apps/admin/lib/paypal.ts`
+- `.Codex/changelog.md`
+
+### Verification
+- Focused Biome lint passed for all checkout hardening files.
+- Focused TypeScript validation passed using an isolated non-incremental config.
+
+### What's Next
+- Deploy Quickdash before the matching Gemsutopia client change.
+- Run a sandbox or controlled live checkout and confirm the PayPal amount, completed order, email receipt, and inventory decrement.
