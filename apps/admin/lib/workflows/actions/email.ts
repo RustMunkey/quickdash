@@ -3,7 +3,6 @@ import type {
 	ActionHandler,
 	EmailSendConfig,
 	EmailSendTemplateConfig,
-	WorkflowExecutionContext,
 	ActionResult,
 } from "../types"
 import { resolveConfigVariables } from "../variable-resolver"
@@ -32,18 +31,6 @@ export const handleEmailSend: ActionHandler<EmailSendConfig> = async (
 			replyTo,
 			workspaceId: context.workspaceId, // Uses workspace-specific config
 		})
-
-		if (!result) {
-			return { success: false, error: "Email service not configured" }
-		}
-
-		if (result.error) {
-			return {
-				success: false,
-				error: result.error.message,
-				output: { errorDetails: result.error },
-			}
-		}
 
 		return {
 			success: true,

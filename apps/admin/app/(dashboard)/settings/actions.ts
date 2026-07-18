@@ -4,6 +4,7 @@ import { db } from "@quickdash/db/client"
 import * as schema from "@quickdash/db/schema"
 import { eq, and, inArray } from "@quickdash/db/drizzle"
 import { requireWorkspace, checkWorkspacePermission } from "@/lib/workspace"
+import { Resend } from "resend"
 
 async function requireSettingsPermission() {
 	const workspace = await requireWorkspace()
@@ -106,6 +107,8 @@ export async function getWorkspaceEmailConfig() {
 			fromName: "",
 			replyTo: "",
 			webhookUrl: "",
+			lastError: "",
+			lastUsedAt: null,
 		}
 	}
 
@@ -124,6 +127,8 @@ export async function getWorkspaceEmailConfig() {
 		fromName: metadata?.fromName || "",
 		replyTo: metadata?.replyTo || "",
 		webhookUrl: `${process.env.NEXT_PUBLIC_ADMIN_URL || ""}/api/webhooks/resend/${workspace.id}`,
+		lastError: integration.lastError || "",
+		lastUsedAt: integration.lastUsedAt,
 	}
 }
 
@@ -135,6 +140,21 @@ export async function saveWorkspaceEmailConfig(config: {
 	replyTo: string
 }) {
 	const workspace = await requireSettingsPermission()
+	const apiKey = config.apiKey.trim()
+	const fromEmail = config.fromEmail.trim().toLowerCase()
+
+	if (!apiKey || !fromEmail) throw new Error("Resend API key and From Email are required")
+	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail)) throw new Error("From Email is invalid")
+
+	const resend = new Resend(apiKey)
+	const domainResult = await resend.domains.list()
+	if (domainResult.error) throw new Error(`Resend connection failed: ${domainResult.error.message}`)
+	const fromDomain = fromEmail.split("@")[1]
+	const matchingDomain = domainResult.data?.data?.find((domain) =>
+		fromDomain === domain.name || fromDomain.endsWith(`.${domain.name}`)
+	)
+	if (!matchingDomain) throw new Error(`${fromDomain} is not configured in this Resend account`)
+	if (matchingDomain.status !== "verified") throw new Error(`${matchingDomain.name} is not verified in Resend`)
 
 	// Check if integration already exists
 	const [existing] = await db
@@ -148,11 +168,11 @@ export async function saveWorkspaceEmailConfig(config: {
 		)
 		.limit(1)
 
-	const credentials = { apiKey: config.apiKey, webhookSecret: config.webhookSecret }
+	const credentials = { apiKey, webhookSecret: config.webhookSecret.trim() }
 	const metadata = {
-		fromEmail: config.fromEmail,
-		fromName: config.fromName,
-		replyTo: config.replyTo,
+		fromEmail,
+		fromName: config.fromName.trim(),
+		replyTo: config.replyTo.trim().toLowerCase(),
 	}
 
 	if (existing) {
@@ -179,6 +199,22 @@ export async function saveWorkspaceEmailConfig(config: {
 	// Clear the cache so new config is used immediately
 	const { clearWorkspaceResendCache } = await import("@/lib/resend")
 	clearWorkspaceResendCache(workspace.id)
+}
+
+export async function sendWorkspaceTestEmail(to: string) {
+	const workspace = await requireSettingsPermission()
+	const recipient = to.trim().toLowerCase()
+	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) throw new Error("Test recipient email is invalid")
+
+	const { sendEmail } = await import("@/lib/send-email")
+	const result = await sendEmail({
+		to: recipient,
+		subject: "Gemsutopia email delivery test",
+		html: "<p>Your Quickdash Resend integration is configured correctly.</p>",
+		workspaceId: workspace.id,
+	})
+
+	return { emailId: result.data?.id || null }
 }
 
 export async function deleteWorkspaceEmailConfig() {

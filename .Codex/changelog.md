@@ -266,3 +266,31 @@
 - Push/deploy the category-count/no-store fix, then re-check `https://app.quickdash.net/api/storefront/categories?count=true` with the Gemsutopia key.
 - Patch Gemsutopia `ProductContent` to use Quickdash product images instead of `placeholderMedia`.
 - Continue the cleanup in phases: next remove or redirect remaining CRM/marketing/automation/billing surfaces, then delete dead message/call/notification components/actions/schema/dependencies after confirming no ecommerce flows depend on them.
+
+### Parked TODO — Gemsutopia Transactional Email DNS (2026-07-17)
+- The replacement `RESEND_API_KEY` in Gemsutopia's local `.env.local` authenticated successfully with the Resend API; the key itself is valid.
+- Resend reports the `gemsutopia.ca` sending domain as `failed` because the required MX record for `send.gemsutopia.ca` is missing from public DNS.
+- DKIM at `resend._domainkey.gemsutopia.ca` is verified, and the SPF TXT record at `send.gemsutopia.ca` is publicly present.
+- DNS is hosted by DreamHost. Reese must provide DNS access before this can be completed.
+- DreamHost may not expose subdomain MX creation in the normal DNS record UI for Reese's current hosting configuration. After access is available, inspect the separate **Custom MX** area and the domain's hosting/email configuration before changing anything; do not replace the root domain's mail routing.
+- Required result: an MX record at `send.gemsutopia.ca` with value `feedback-smtp.us-east-1.amazonses.com` and priority `10`, while keeping the existing DKIM and SPF TXT records. If Reese's DreamHost configuration truly cannot publish that subdomain MX record, move authoritative DNS to a provider that supports it or delegate the email-sending subdomain rather than repeatedly deleting/re-adding the Resend domain.
+- After the MX record propagates, trigger Resend domain verification again. Only then replace the Gemsutopia production workspace integration key and run a real transactional-email delivery test.
+
+### Transactional Email Reliability (2026-07-17)
+- Made direct Resend delivery persist pending/sent/failed message state and update the workspace integration's last-use/last-error diagnostics.
+- Resend API errors now fail explicitly instead of being treated as successful responses.
+- Storefront order confirmation delivery is awaited so serverless execution cannot terminate before the request is sent; payment/order completion remains successful if email delivery fails.
+- Workspace email settings now validate the API key and verified sending domain before saving, expose the last delivery error, and provide a test-recipient/send-test-email action.
+- Updated workflow email handling to use the throwing delivery contract.
+
+### Transactional Email Files Changed
+- `apps/admin/lib/send-email.ts`
+- `apps/admin/app/api/storefront/orders/route.ts`
+- `apps/admin/app/(dashboard)/settings/actions.ts`
+- `apps/admin/app/(dashboard)/settings/integrations/integrations-client.tsx`
+- `apps/admin/lib/workflows/actions/email.ts`
+- `.Codex/changelog.md`
+
+### Transactional Email Verification
+- Focused TypeScript check passed with `/tmp/quickdash-tsconfig.json`.
+- Focused Biome lint passed for all five transactional-email implementation files.
