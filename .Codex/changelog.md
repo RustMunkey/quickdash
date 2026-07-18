@@ -294,3 +294,18 @@
 ### Transactional Email Verification
 - Focused TypeScript check passed with `/tmp/quickdash-tsconfig.json`.
 - Focused Biome lint passed for all five transactional-email implementation files.
+
+## Storefront Contact Delivery — 2026-07-18
+
+### Completed
+- Added a workspace-scoped storefront contact endpoint that validates and rate-limits public messages.
+- Contact submissions are stored in the workspace's `contact-submissions` collection before delivery.
+- Messages are delivered through the workspace Resend integration to its configured reply-to address, with the customer's address set as the email reply-to.
+- User-provided content is escaped before HTML email rendering.
+
+### Files Changed
+- `apps/admin/app/api/storefront/contact/route.ts`
+- `.Codex/changelog.md`
+
+### What's Next
+- Deploy Quickdash, then submit a real Gemsutopia contact form and confirm Reese receives the message.
