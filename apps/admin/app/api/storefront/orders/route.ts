@@ -1,11 +1,21 @@
 import type { NextRequest } from "next/server"
 import { db } from "@quickdash/db/client"
-import { eq, and, desc, sql } from "@quickdash/db/drizzle"
-import { orders, orderItems, payments } from "@quickdash/db/schema"
+import { eq, and, desc, sql, inArray, gte } from "@quickdash/db/drizzle"
+import { orders, orderItems, payments, inventory, inventoryLogs, productVariants, products } from "@quickdash/db/schema"
 import { withStorefrontAuth, storefrontError, storefrontJson, handleCorsOptions, getWorkspaceSiteMode, type StorefrontContext } from "@/lib/storefront-auth"
 import { generateOrderNumber, buildOrderConfirmationEmail } from "@/lib/order-utils"
 import { sendEmail } from "@/lib/send-email"
 import { extractBearerToken, verifyCustomerToken } from "@/lib/storefront-jwt"
+import { getPayPalCredentials } from "@/lib/workspace-integrations"
+import { verifyCompletedPayPalCapture } from "@/lib/paypal"
+
+class InventoryConflictError extends Error {}
+
+function moneyMatches(left: string | number, right: string | number) {
+	const leftCents = Math.round(Number(left) * 100)
+	const rightCents = Math.round(Number(right) * 100)
+	return Number.isFinite(leftCents) && Number.isFinite(rightCents) && leftCents === rightCents
+}
 
 async function getAuthenticatedCustomerId(request: NextRequest, storefront: StorefrontContext) {
 	const token = extractBearerToken(request.headers.get("Authorization"))
@@ -164,83 +174,224 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 	if (!items?.length) return storefrontError("items array is required", 400)
 	if (!payment?.provider) return storefrontError("payment.provider is required", 400)
 	if (!totals) return storefrontError("totals is required", 400)
+	if (payment.provider !== "paypal") return storefrontError("Only PayPal is supported", 400)
+	if (!payment.captureID || !payment.orderId) {
+		return storefrontError("Verified PayPal order and capture IDs are required", 400)
+	}
+	if (items.some((item) => !item.variantId || !Number.isInteger(item.quantity) || item.quantity <= 0)) {
+		return storefrontError("Every order item requires a variant and positive whole quantity", 400)
+	}
+
+	const existingPayment = await db
+		.select({ orderId: payments.orderId })
+		.from(payments)
+		.where(and(
+			eq(payments.workspaceId, storefront.workspaceId),
+			eq(payments.externalId, payment.captureID)
+		))
+		.limit(1)
+
+	if (existingPayment[0]) {
+		const [existingOrder] = await db
+			.select({ id: orders.id, orderNumber: orders.orderNumber, status: orders.status })
+			.from(orders)
+			.where(eq(orders.id, existingPayment[0].orderId))
+			.limit(1)
+		return storefrontJson({ order: existingOrder, idempotent: true })
+	}
+
+	const paypalCredentials = await getPayPalCredentials(storefront.workspaceId)
+	if (!paypalCredentials) return storefrontError("PayPal is not configured", 503)
+
+	let verifiedCapture: Awaited<ReturnType<typeof verifyCompletedPayPalCapture>>
+	try {
+		verifiedCapture = await verifyCompletedPayPalCapture(
+			paypalCredentials,
+			payment.orderId,
+			payment.captureID
+		)
+	} catch (error) {
+		console.error("PayPal verification failed:", error)
+		return storefrontError("PayPal payment could not be verified", 409)
+	}
+
+	if (
+		!moneyMatches(verifiedCapture.amount, totals.total)
+		|| !moneyMatches(verifiedCapture.amount, payment.amount)
+		|| verifiedCapture.currency !== payment.currency.toUpperCase()
+	) {
+		return storefrontError("PayPal payment amount does not match the order", 409)
+	}
+
+	const variantIds = [...new Set(items.map((item) => item.variantId as string))]
+	const validVariants = await db
+		.select({ id: productVariants.id })
+		.from(productVariants)
+		.innerJoin(products, eq(products.id, productVariants.productId))
+		.where(and(
+			inArray(productVariants.id, variantIds),
+			eq(productVariants.isActive, true),
+			eq(products.isActive, true),
+			eq(products.workspaceId, storefront.workspaceId)
+		))
+
+	if (validVariants.length !== variantIds.length) {
+		return storefrontError("One or more products are no longer available", 409)
+	}
 
 	const orderNumber = generateOrderNumber()
 
-	// Guest orders: store shipping address in metadata (addresses table requires userId FK)
-	// Create order
-	const [order] = await db
-		.insert(orders)
-		.values({
-			workspaceId: storefront.workspaceId,
-			orderNumber,
-			userId: authenticatedCustomerId,
-			status: "confirmed",
-			subtotal: totals.subtotal.toFixed(2),
-			discountAmount: (totals.discount || 0).toFixed(2),
-			taxAmount: (totals.tax || 0).toFixed(2),
-			shippingAmount: (totals.shipping || 0).toFixed(2),
-			total: totals.total.toFixed(2),
-			shippingAddressId: null,
-			metadata: {
-				...metadata,
-				storefrontId: storefront.id,
-				storefrontName: storefront.name,
-				customer: {
-					email: customer.email,
-					firstName: customer.firstName,
-					lastName: customer.lastName,
-					phone: customer.phone,
-				},
-				shippingAddress: shippingAddress || null,
-				discountCode: discountCode || null,
-				...(siteMode.sandbox ? { sandbox: true } : {}),
-			},
-		})
-		.returning()
+	let order: { id: string; orderNumber: string; status: string }
+	try {
+		order = await db.transaction(async (tx) => {
+			const [createdOrder] = await tx
+				.insert(orders)
+				.values({
+					workspaceId: storefront.workspaceId,
+					orderNumber,
+					userId: authenticatedCustomerId,
+					status: "confirmed",
+					subtotal: totals.subtotal.toFixed(2),
+					discountAmount: (totals.discount || 0).toFixed(2),
+					taxAmount: (totals.tax || 0).toFixed(2),
+					shippingAmount: (totals.shipping || 0).toFixed(2),
+					total: totals.total.toFixed(2),
+					shippingAddressId: null,
+					metadata: {
+						...metadata,
+						storefrontId: storefront.id,
+						storefrontName: storefront.name,
+						customer: { email: customer.email, firstName: customer.firstName, lastName: customer.lastName, phone: customer.phone },
+						shippingAddress: shippingAddress || null,
+						discountCode: discountCode || null,
+						paypalOrderId: verifiedCapture.paypalOrderId,
+						paypalCaptureId: verifiedCapture.captureId,
+						...(siteMode.sandbox ? { sandbox: true } : {}),
+					},
+				})
+				.returning({ id: orders.id, orderNumber: orders.orderNumber, status: orders.status })
 
-	// Create order items
-	if (items.length > 0) {
-		await db.insert(orderItems).values(
-			items.map((item) => ({
-				orderId: order.id,
-				variantId: item.variantId || null,
+			await tx.insert(orderItems).values(items.map((item) => ({
+				orderId: createdOrder.id,
+				variantId: item.variantId,
 				productName: item.name,
 				variantName: null,
 				sku: item.sku || null,
 				unitPrice: item.price.toFixed(2),
 				quantity: item.quantity,
 				totalPrice: (item.price * item.quantity).toFixed(2),
-			}))
-		)
-	}
+			})))
 
-	// Create payment record
-	const paymentAmount = typeof payment.amount === "string" ? payment.amount : payment.amount.toFixed(2)
-	await db.insert(payments).values({
-		workspaceId: storefront.workspaceId,
-		orderId: order.id,
-		method: payment.method || payment.provider,
-		provider: payment.provider,
-		status: "completed",
-		amount: paymentAmount,
-		currency: (payment.currency || "USD").toUpperCase(),
-		externalId: payment.externalId || payment.session_id || payment.captureID || payment.checkoutId || payment.txHash || null,
-		providerData: {
-			session_id: payment.session_id,
-			captureId: payment.captureID,
-			checkoutId: payment.checkoutId,
-			orderId: payment.orderId,
-			paymentLinkId: payment.paymentLinkId,
-			txHash: payment.txHash,
-			walletAddress: payment.walletAddress,
-			chain: payment.chain,
-		},
-		chainId: payment.chain || null,
-		walletAddress: payment.walletAddress || null,
-		txHash: payment.txHash || null,
-		paidAt: new Date(),
-	})
+			for (const item of items) {
+				const [updatedInventory] = await tx
+					.update(inventory)
+					.set({
+						quantity: sql`${inventory.quantity} - ${item.quantity}`,
+						updatedAt: new Date(),
+					})
+					.where(and(
+						eq(inventory.workspaceId, storefront.workspaceId),
+						eq(inventory.variantId, item.variantId as string),
+						gte(sql`${inventory.quantity} - ${inventory.reservedQuantity}`, item.quantity)
+					))
+					.returning({ quantity: inventory.quantity })
+
+				if (!updatedInventory) throw new InventoryConflictError(`${item.name} is out of stock`)
+
+				await tx.insert(inventoryLogs).values({
+					workspaceId: storefront.workspaceId,
+					variantId: item.variantId as string,
+					previousQuantity: updatedInventory.quantity + item.quantity,
+					newQuantity: updatedInventory.quantity,
+					reason: "order_fulfillment",
+					orderId: createdOrder.id,
+				})
+			}
+
+			await tx.insert(payments).values({
+				workspaceId: storefront.workspaceId,
+				orderId: createdOrder.id,
+				method: "paypal",
+				provider: "paypal",
+				status: "completed",
+				amount: verifiedCapture.amount,
+				currency: verifiedCapture.currency,
+				externalId: verifiedCapture.captureId,
+				providerData: { paypalOrderId: verifiedCapture.paypalOrderId, captureId: verifiedCapture.captureId },
+				paidAt: new Date(),
+			})
+
+			return createdOrder
+		})
+	} catch (error) {
+		if (error instanceof InventoryConflictError) {
+			order = await db.transaction(async (tx) => {
+				const [reviewOrder] = await tx
+					.insert(orders)
+					.values({
+						workspaceId: storefront.workspaceId,
+						orderNumber,
+						userId: authenticatedCustomerId,
+						status: "inventory_review",
+						subtotal: totals.subtotal.toFixed(2),
+						discountAmount: (totals.discount || 0).toFixed(2),
+						taxAmount: (totals.tax || 0).toFixed(2),
+						shippingAmount: (totals.shipping || 0).toFixed(2),
+						total: totals.total.toFixed(2),
+						metadata: {
+							...metadata,
+							storefrontId: storefront.id,
+							storefrontName: storefront.name,
+							customer: { email: customer.email, firstName: customer.firstName, lastName: customer.lastName, phone: customer.phone },
+							shippingAddress: shippingAddress || null,
+							discountCode: discountCode || null,
+							paypalOrderId: verifiedCapture.paypalOrderId,
+							paypalCaptureId: verifiedCapture.captureId,
+							inventoryIssue: error.message,
+							requiresManualReview: true,
+						},
+					})
+					.returning({ id: orders.id, orderNumber: orders.orderNumber, status: orders.status })
+
+				await tx.insert(orderItems).values(items.map((item) => ({
+					orderId: reviewOrder.id,
+					variantId: item.variantId,
+					productName: item.name,
+					variantName: null,
+					sku: item.sku || null,
+					unitPrice: item.price.toFixed(2),
+					quantity: item.quantity,
+					totalPrice: (item.price * item.quantity).toFixed(2),
+				})))
+
+				await tx.insert(payments).values({
+					workspaceId: storefront.workspaceId,
+					orderId: reviewOrder.id,
+					method: "paypal",
+					provider: "paypal",
+					status: "completed",
+					amount: verifiedCapture.amount,
+					currency: verifiedCapture.currency,
+					externalId: verifiedCapture.captureId,
+					providerData: { paypalOrderId: verifiedCapture.paypalOrderId, captureId: verifiedCapture.captureId, inventoryReview: true },
+					paidAt: new Date(),
+				})
+
+				return reviewOrder
+			})
+		} else if ((error as { code?: string })?.code === "23505") {
+			const [duplicate] = await db
+				.select({ id: orders.id, orderNumber: orders.orderNumber, status: orders.status })
+				.from(payments)
+				.innerJoin(orders, eq(orders.id, payments.orderId))
+				.where(and(eq(payments.workspaceId, storefront.workspaceId), eq(payments.externalId, payment.captureID)))
+				.limit(1)
+			if (duplicate) return storefrontJson({ order: duplicate, idempotent: true })
+			throw error
+		} else {
+			throw error
+		}
+	}
 
 	// Send order confirmation email (async, don't block response)
 	const customerName = [customer.firstName, customer.lastName].filter(Boolean).join(" ") || "Customer"
@@ -253,7 +404,7 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 		tax: totals.tax || 0,
 		shipping: totals.shipping || 0,
 		total: totals.total,
-		currency: (payment.currency || "USD").toUpperCase(),
+		currency: verifiedCapture.currency,
 		shippingAddress: shippingAddress || undefined,
 		paymentMethod: payment.provider,
 	})
