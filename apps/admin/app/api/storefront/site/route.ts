@@ -289,7 +289,12 @@ async function handleGet(request: NextRequest, storefront: StorefrontContext) {
 			// Storefronts use these to initialize Pusher, then authenticate channels
 			// via POST /api/storefront/pusher/auth with their X-Storefront-Key.
 			pusher: env.PUSHER_KEY && env.PUSHER_CLUSTER
-				? { key: env.PUSHER_KEY, cluster: env.PUSHER_CLUSTER }
+				? {
+					key: env.PUSHER_KEY,
+					cluster: env.PUSHER_CLUSTER,
+					channelPrefix: `private-workspace-${storefront.workspaceId}`,
+					authEndpoint: "/api/storefront/pusher/auth",
+				}
 				: null,
 
 			// Payment methods (which providers are configured)

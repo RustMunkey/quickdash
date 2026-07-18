@@ -5,6 +5,13 @@ import { contentCollections, contentEntries } from "@quickdash/db/schema"
 import type { CollectionSchema } from "@quickdash/db/schema"
 import { eq, and, desc, asc, count, inArray, ilike, sql } from "@quickdash/db/drizzle"
 import { requireWorkspace, checkWorkspacePermission } from "@/lib/workspace"
+import { pusherServer } from "@/lib/pusher-server"
+import { wsChannel } from "@/lib/pusher-channels"
+
+async function publishCollectionUpdate(workspaceId: string) {
+	if (!pusherServer) return
+	await pusherServer.trigger(wsChannel(workspaceId, "content"), "collections:updated", {})
+}
 
 async function requireContentPermission() {
 	const workspace = await requireWorkspace()
@@ -101,6 +108,7 @@ export async function createCollection(data: {
 			sortOrder: (maxSort?.max ?? -1) + 1,
 		})
 		.returning()
+	await publishCollectionUpdate(workspace.id)
 	return collection
 }
 
@@ -126,6 +134,7 @@ export async function updateCollection(id: string, data: {
 			)
 		)
 		.returning()
+	await publishCollectionUpdate(workspace.id)
 	return collection
 }
 
@@ -139,6 +148,7 @@ export async function deleteCollection(id: string) {
 				eq(contentCollections.workspaceId, workspace.id)
 			)
 		)
+	await publishCollectionUpdate(workspace.id)
 }
 
 // --- ENTRIES ---
@@ -227,6 +237,7 @@ export async function createEntry(collectionId: string, data: Record<string, unk
 			data,
 		})
 		.returning()
+	await publishCollectionUpdate(workspace.id)
 	return entry
 }
 
@@ -246,6 +257,7 @@ export async function updateEntry(entryId: string, data: {
 			)
 		)
 		.returning()
+	await publishCollectionUpdate(workspace.id)
 	return entry
 }
 
@@ -259,6 +271,7 @@ export async function deleteEntry(entryId: string) {
 				eq(contentEntries.workspaceId, workspace.id)
 			)
 		)
+	await publishCollectionUpdate(workspace.id)
 }
 
 export async function bulkDeleteEntries(ids: string[]) {
@@ -271,6 +284,7 @@ export async function bulkDeleteEntries(ids: string[]) {
 				eq(contentEntries.workspaceId, workspace.id)
 			)
 		)
+	await publishCollectionUpdate(workspace.id)
 }
 
 export async function bulkToggleEntries(ids: string[], isActive: boolean) {
@@ -284,4 +298,5 @@ export async function bulkToggleEntries(ids: string[], isActive: boolean) {
 				eq(contentEntries.workspaceId, workspace.id)
 			)
 		)
+	await publishCollectionUpdate(workspace.id)
 }
