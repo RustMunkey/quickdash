@@ -223,6 +223,38 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 		return storefrontError("PayPal payment amount does not match the order", 409)
 	}
 
+	type VerifiedPayPalItem = {
+		name: string
+		variantId: string
+		quantity: number
+		unitAmount: number
+	}
+	const verifiedItems = new Map<string, VerifiedPayPalItem>(
+		verifiedCapture.items.map((item: VerifiedPayPalItem) => [item.variantId, item])
+	)
+	if (
+		verifiedCapture.items.length !== items.length
+		|| items.some((item) => {
+			const verifiedItem = item.variantId ? verifiedItems.get(item.variantId) : null
+			return !verifiedItem
+				|| verifiedItem.quantity !== item.quantity
+				|| !moneyMatches(verifiedItem.unitAmount, item.price)
+		})
+	) {
+		return storefrontError("Order items do not match the verified PayPal purchase", 409)
+	}
+
+	const verifiedTotals = {
+		subtotal: Number(verifiedCapture.breakdown.subtotal),
+		discount: Number(verifiedCapture.breakdown.discount),
+		tax: 0,
+		shipping: Number(verifiedCapture.breakdown.shipping),
+		total: Number(verifiedCapture.amount),
+	}
+	if (Object.values(verifiedTotals).some((value) => !Number.isFinite(value) || value < 0)) {
+		return storefrontError("PayPal returned invalid order totals", 409)
+	}
+
 	const variantIds = [...new Set(items.map((item) => item.variantId as string))]
 	const validVariants = await db
 		.select({ id: productVariants.id })
@@ -251,11 +283,11 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 					orderNumber,
 					userId: authenticatedCustomerId,
 					status: "confirmed",
-					subtotal: totals.subtotal.toFixed(2),
-					discountAmount: (totals.discount || 0).toFixed(2),
-					taxAmount: (totals.tax || 0).toFixed(2),
-					shippingAmount: (totals.shipping || 0).toFixed(2),
-					total: totals.total.toFixed(2),
+					subtotal: verifiedTotals.subtotal.toFixed(2),
+					discountAmount: verifiedTotals.discount.toFixed(2),
+					taxAmount: verifiedTotals.tax.toFixed(2),
+					shippingAmount: verifiedTotals.shipping.toFixed(2),
+					total: verifiedTotals.total.toFixed(2),
 					shippingAddressId: null,
 					metadata: {
 						...metadata,
@@ -274,12 +306,12 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 			await tx.insert(orderItems).values(items.map((item) => ({
 				orderId: createdOrder.id,
 				variantId: item.variantId,
-				productName: item.name,
+				productName: verifiedItems.get(item.variantId as string)?.name || item.name,
 				variantName: null,
-				sku: item.sku || null,
-				unitPrice: item.price.toFixed(2),
+				sku: null,
+				unitPrice: (verifiedItems.get(item.variantId as string)?.unitAmount || 0).toFixed(2),
 				quantity: item.quantity,
-				totalPrice: (item.price * item.quantity).toFixed(2),
+				totalPrice: ((verifiedItems.get(item.variantId as string)?.unitAmount || 0) * item.quantity).toFixed(2),
 			})))
 
 			for (const item of items) {
@@ -333,11 +365,11 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 						orderNumber,
 						userId: authenticatedCustomerId,
 						status: "inventory_review",
-						subtotal: totals.subtotal.toFixed(2),
-						discountAmount: (totals.discount || 0).toFixed(2),
-						taxAmount: (totals.tax || 0).toFixed(2),
-						shippingAmount: (totals.shipping || 0).toFixed(2),
-						total: totals.total.toFixed(2),
+						subtotal: verifiedTotals.subtotal.toFixed(2),
+						discountAmount: verifiedTotals.discount.toFixed(2),
+						taxAmount: verifiedTotals.tax.toFixed(2),
+						shippingAmount: verifiedTotals.shipping.toFixed(2),
+						total: verifiedTotals.total.toFixed(2),
 						metadata: {
 							...metadata,
 							storefrontId: storefront.id,
@@ -356,12 +388,12 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 				await tx.insert(orderItems).values(items.map((item) => ({
 					orderId: reviewOrder.id,
 					variantId: item.variantId,
-					productName: item.name,
+					productName: verifiedItems.get(item.variantId as string)?.name || item.name,
 					variantName: null,
-					sku: item.sku || null,
-					unitPrice: item.price.toFixed(2),
+					sku: null,
+					unitPrice: (verifiedItems.get(item.variantId as string)?.unitAmount || 0).toFixed(2),
 					quantity: item.quantity,
-					totalPrice: (item.price * item.quantity).toFixed(2),
+					totalPrice: ((verifiedItems.get(item.variantId as string)?.unitAmount || 0) * item.quantity).toFixed(2),
 				})))
 
 				await tx.insert(payments).values({
@@ -398,12 +430,16 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 	const emailData = buildOrderConfirmationEmail({
 		orderNumber,
 		customerName,
-		items: items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.price })),
-		subtotal: totals.subtotal,
-		discount: totals.discount || 0,
-		tax: totals.tax || 0,
-		shipping: totals.shipping || 0,
-		total: totals.total,
+		items: items.map((item) => ({
+			name: verifiedItems.get(item.variantId as string)?.name || item.name,
+			quantity: item.quantity,
+			unitPrice: verifiedItems.get(item.variantId as string)?.unitAmount || 0,
+		})),
+		subtotal: verifiedTotals.subtotal,
+		discount: verifiedTotals.discount,
+		tax: verifiedTotals.tax,
+		shipping: verifiedTotals.shipping,
+		total: verifiedTotals.total,
 		currency: verifiedCapture.currency,
 		shippingAddress: shippingAddress || undefined,
 		paymentMethod: payment.provider,

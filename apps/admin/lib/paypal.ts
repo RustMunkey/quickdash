@@ -59,5 +59,21 @@ export async function verifyCompletedPayPalCapture(
 		amount: String(capture.amount?.value || ""),
 		currency: String(capture.amount?.currency_code || "").toUpperCase(),
 		paypalOrderId: String(order.id || paypalOrderId),
+		items: (order.purchase_units?.[0]?.items || []).map((item: {
+			name?: string
+			sku?: string
+			quantity?: string
+			unit_amount?: { value?: string }
+		}) => ({
+			name: String(item.name || "Item"),
+			variantId: String(item.sku || ""),
+			quantity: Number(item.quantity || 0),
+			unitAmount: Number(item.unit_amount?.value || 0),
+		})),
+		breakdown: {
+			subtotal: String(order.purchase_units?.[0]?.amount?.breakdown?.item_total?.value || "0"),
+			shipping: String(order.purchase_units?.[0]?.amount?.breakdown?.shipping?.value || "0"),
+			discount: String(order.purchase_units?.[0]?.amount?.breakdown?.discount?.value || "0"),
+		},
 	}
 }
