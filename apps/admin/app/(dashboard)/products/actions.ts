@@ -161,6 +161,33 @@ interface ProductData {
 	weightUnit?: string
 	metaTitle?: string
 	metaDescription?: string
+	initialStock?: number
+}
+
+function normalizeStock(quantity: number | undefined) {
+	if (quantity === undefined || !Number.isFinite(quantity)) return 0
+	return Math.max(0, Math.floor(quantity))
+}
+
+async function createDefaultVariant(productId: string, workspaceId: string, quantity: number | undefined) {
+	const [variant] = await db
+		.insert(productVariants)
+		.values({
+			productId,
+			name: "Default",
+			sku: `DEFAULT-${productId.toUpperCase()}`,
+			attributes: {},
+			isActive: true,
+		})
+		.returning()
+
+	await db.insert(inventory).values({
+		workspaceId,
+		variantId: variant.id,
+		quantity: normalizeStock(quantity),
+	})
+
+	return variant
 }
 
 export async function createProduct(data: ProductData) {
@@ -196,6 +223,9 @@ export async function createProduct(data: ProductData) {
 			metaDescription: data.metaDescription || null,
 		})
 		.returning()
+
+	// Simple products still need a variant because QuickDash inventory is variant-based.
+	await createDefaultVariant(product.id, workspace.id, data.initialStock)
 
 	await logAudit({
 		action: "product.created",
@@ -290,6 +320,18 @@ export async function updateProduct(id: string, data: Partial<ProductData>) {
 		.set(updates)
 		.where(and(eq(products.id, id), eq(products.workspaceId, workspace.id)))
 		.returning()
+
+	if (data.initialStock !== undefined) {
+		const [existingVariant] = await db
+			.select({ id: productVariants.id })
+			.from(productVariants)
+			.where(eq(productVariants.productId, id))
+			.limit(1)
+
+		if (!existingVariant) {
+			await createDefaultVariant(id, workspace.id, data.initialStock)
+		}
+	}
 
 	await logAudit({
 		action: "product.updated",
@@ -448,8 +490,9 @@ export async function createVariant(productId: string, data: VariantData) {
 
 	// Create inventory record
 	await db.insert(inventory).values({
+		workspaceId: workspace.id,
 		variantId: variant.id,
-		quantity: data.quantity ?? 0,
+		quantity: normalizeStock(data.quantity),
 	})
 
 	await logAudit({

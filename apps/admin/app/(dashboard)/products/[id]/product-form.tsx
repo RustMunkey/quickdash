@@ -95,6 +95,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
 		return ""
 	})
 	const [costPrice, setCostPrice] = useState(product?.costPrice ?? "")
+	const [initialStock, setInitialStock] = useState(() => String(product?.variants?.[0]?.quantity ?? 0))
 	const [categoryId, setCategoryId] = useState(product?.categoryId ?? "")
 	const [sourceType, setSourceType] = useState(product?.sourceType ?? "owned")
 	const [tags, setTags] = useState((product?.tags ?? []).join(", "))
@@ -145,6 +146,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
 		weightUnit: string
 		metaTitle: string
 		metaDescription: string
+		initialStock: string
 	}
 
 	const {
@@ -182,7 +184,8 @@ export function ProductForm({ product, categories }: ProductFormProps) {
 		weightUnit,
 		metaTitle,
 		metaDescription,
-	}), [name, slug, description, shortDescription, price, compareAtPrice, salePrice, saleStartsAt, saleEndsAt, costPrice, categoryId, sourceType, tags, mediaItems, isActive, isSubscribable, isFeatured, weight, weightUnit, metaTitle, metaDescription])
+		initialStock,
+	}), [name, slug, description, shortDescription, price, compareAtPrice, salePrice, saleStartsAt, saleEndsAt, costPrice, categoryId, sourceType, tags, mediaItems, isActive, isSubscribable, isFeatured, weight, weightUnit, metaTitle, metaDescription, initialStock])
 
 	// Auto-save draft when form data changes (only for new products)
 	useEffect(() => {
@@ -220,6 +223,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
 		setWeightUnit(data.weightUnit || "oz")
 		setMetaTitle(data.metaTitle || "")
 		setMetaDescription(data.metaDescription || "")
+		setInitialStock(data.initialStock || "0")
 		loadDraft(draft)
 	}
 
@@ -246,6 +250,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
 
 		setLoading(true)
 		try {
+			const parsedInitialStock = Number.parseInt(initialStock, 10)
 			const data = {
 				name: name.trim(),
 				slug: slug.trim() || slugify(name),
@@ -269,6 +274,9 @@ export function ProductForm({ product, categories }: ProductFormProps) {
 				weightUnit,
 				metaTitle: metaTitle.trim() || undefined,
 				metaDescription: metaDescription.trim() || undefined,
+				...((isNew || variants.length === 0) && {
+					initialStock: Number.isFinite(parsedInitialStock) ? Math.max(0, parsedInitialStock) : 0,
+				}),
 			}
 
 			if (isNew) {
@@ -400,6 +408,22 @@ export function ProductForm({ product, categories }: ProductFormProps) {
 								<Input id="costPrice" type="number" step="0.01" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} />
 							</div>
 						</div>
+						{(isNew || variants.length === 0) && (
+							<div className="space-y-2 max-w-xs">
+								<Label htmlFor="initialStock">Stock quantity</Label>
+								<Input
+									id="initialStock"
+									type="number"
+									min="0"
+									step="1"
+									value={initialStock}
+									onChange={(e) => setInitialStock(e.target.value)}
+								/>
+								<p className="text-xs text-muted-foreground">
+									QuickDash will create the default inventory variant automatically.
+								</p>
+							</div>
+						)}
 
 						{/* Sale Price Section */}
 						<div className="pt-2 border-t">
