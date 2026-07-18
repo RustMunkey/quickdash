@@ -409,14 +409,16 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 		paymentMethod: payment.provider,
 	})
 
-	sendEmail({
-		to: customer.email,
-		subject: emailData.subject,
-		html: emailData.html,
-		workspaceId: storefront.workspaceId,
-	}).catch((err) => {
+	try {
+		await sendEmail({
+			to: customer.email,
+			subject: emailData.subject,
+			html: emailData.html,
+			workspaceId: storefront.workspaceId,
+		})
+	} catch (err) {
 		console.error("Failed to send order confirmation email:", err)
-	})
+	}
 
 	return storefrontJson({
 		order: {

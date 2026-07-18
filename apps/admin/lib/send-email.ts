@@ -1,6 +1,6 @@
-import { eq } from "@quickdash/db/drizzle"
+import { eq, and } from "@quickdash/db/drizzle"
 import { db } from "@quickdash/db/client"
-import { emailTemplates, messages } from "@quickdash/db/schema"
+import { emailTemplates, messages, workspaceIntegrations } from "@quickdash/db/schema"
 import { getResend, getWorkspaceResend, getWorkspaceEmailConfig } from "./resend"
 
 type SendTemplateEmailOptions = {
@@ -94,8 +94,44 @@ export async function sendEmail({
 	replyTo,
 	workspaceId,
 }: SendEmailOptions) {
+	const recipients = Array.isArray(to) ? to : [to]
+	const messageBody = html || text || ""
+	const messageRows = workspaceId
+		? await db.insert(messages).values(recipients.map((recipientEmail) => ({
+			workspaceId,
+			recipientEmail,
+			subject,
+			body: messageBody,
+			status: "pending",
+		}))).returning({ id: messages.id })
+		: []
+
+	const setMessageStatus = async (status: "sent" | "failed") => {
+		await Promise.all(messageRows.map((message) =>
+			db.update(messages).set({ status }).where(eq(messages.id, message.id))
+		))
+	}
+
+	const setIntegrationResult = async (errorMessage?: string) => {
+		if (!workspaceId) return
+		await db
+			.update(workspaceIntegrations)
+			.set({
+				lastUsedAt: new Date(),
+				lastError: errorMessage || null,
+			})
+			.where(and(
+				eq(workspaceIntegrations.workspaceId, workspaceId),
+				eq(workspaceIntegrations.provider, "resend")
+			))
+	}
+
 	const resend = workspaceId ? await getWorkspaceResend(workspaceId) : getResend()
-	if (!resend) return null
+	if (!resend) {
+		await setMessageStatus("failed")
+		await setIntegrationResult("Email service is not configured")
+		throw new Error("Email service is not configured")
+	}
 
 	const emailConfig = workspaceId
 		? await getWorkspaceEmailConfig(workspaceId)
@@ -107,14 +143,24 @@ export async function sendEmail({
 
 	const finalReplyTo = replyTo || emailConfig.replyTo
 
-	const result = await resend.emails.send({
-		from,
-		to,
-		subject,
-		html: html || text || "", // Resend requires at least html or text
-		...(text && { text }),
-		...(finalReplyTo && { replyTo: finalReplyTo }),
-	})
+	try {
+		const result = await resend.emails.send({
+			from,
+			to,
+			subject,
+			html: messageBody,
+			...(text && { text }),
+			...(finalReplyTo && { replyTo: finalReplyTo }),
+		})
 
-	return result
+		if (result.error) throw new Error(result.error.message)
+		await setMessageStatus("sent")
+		await setIntegrationResult()
+		return result
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Unknown Resend error"
+		await setMessageStatus("failed")
+		await setIntegrationResult(message)
+		throw error
+	}
 }

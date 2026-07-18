@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { updateSettings, saveWorkspaceEmailConfig, deleteWorkspaceEmailConfig } from "../actions"
+import { updateSettings, saveWorkspaceEmailConfig, deleteWorkspaceEmailConfig, sendWorkspaceTestEmail } from "../actions"
 
 type Setting = {
 	id: string
@@ -38,8 +38,8 @@ function IntegrationCard({ name, description, connected, children, onSave }: Int
 		try {
 			await onSave()
 			toast.success(`${name} settings saved`)
-		} catch {
-			toast.error("Failed to save")
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Failed to save")
 		} finally {
 			setSaving(false)
 		}
@@ -85,6 +85,8 @@ type WorkspaceEmailConfig = {
 	fromName: string
 	replyTo: string
 	webhookUrl: string
+	lastError: string
+	lastUsedAt: Date | null
 }
 
 export function IntegrationsClient({ settings, workspaceEmail }: { settings: Setting[]; workspaceEmail: WorkspaceEmailConfig }) {
@@ -94,6 +96,8 @@ export function IntegrationsClient({ settings, workspaceEmail }: { settings: Set
 	const [wsEmailFromEmail, setWsEmailFromEmail] = useState(workspaceEmail.fromEmail)
 	const [wsEmailFromName, setWsEmailFromName] = useState(workspaceEmail.fromName)
 	const [wsEmailReplyTo, setWsEmailReplyTo] = useState(workspaceEmail.replyTo)
+	const [wsEmailTestRecipient, setWsEmailTestRecipient] = useState(workspaceEmail.replyTo)
+	const [wsEmailTesting, setWsEmailTesting] = useState(false)
 
 	// Klaviyo (user's email marketing)
 	const [klaviyoApiKey, setKlaviyoApiKey] = useState(getVal(settings, "klaviyo_api_key"))
@@ -176,6 +180,11 @@ export function IntegrationsClient({ settings, workspaceEmail }: { settings: Set
 						})
 					}}
 				>
+					{workspaceEmail.lastError && (
+						<div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+							Last delivery error: {workspaceEmail.lastError}
+						</div>
+					)}
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<div className="space-y-2">
 							<Label>Resend API Key</Label>
@@ -251,6 +260,37 @@ export function IntegrationsClient({ settings, workspaceEmail }: { settings: Set
 							<p className="text-xs text-muted-foreground">
 								Paste this URL into your Resend dashboard under Webhooks. Each workspace has a unique URL.
 							</p>
+						</div>
+					)}
+					{wsEmailApiKey && (
+						<div className="space-y-2 pt-3 border-t">
+							<Label>Test Recipient</Label>
+							<div className="flex items-center gap-2">
+								<Input
+									type="email"
+									value={wsEmailTestRecipient}
+									onChange={(event) => setWsEmailTestRecipient(event.target.value)}
+									placeholder="you@example.com"
+								/>
+								<Button
+									type="button"
+									variant="outline"
+									disabled={wsEmailTesting || !wsEmailTestRecipient.trim()}
+									onClick={async () => {
+										setWsEmailTesting(true)
+										try {
+											await sendWorkspaceTestEmail(wsEmailTestRecipient)
+											toast.success("Test email sent")
+										} catch (error) {
+											toast.error(error instanceof Error ? error.message : "Test email failed")
+										} finally {
+											setWsEmailTesting(false)
+										}
+									}}
+								>
+									{wsEmailTesting ? "Sending..." : "Send Test"}
+								</Button>
+							</div>
 						</div>
 					)}
 					{wsEmailApiKey && (
