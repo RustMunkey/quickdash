@@ -4,6 +4,8 @@ import { db } from "@quickdash/db/client"
 import * as schema from "@quickdash/db/schema"
 import { eq, desc, and, ilike, count, inArray } from "@quickdash/db/drizzle"
 import { requireWorkspace, checkWorkspacePermission } from "@/lib/workspace"
+import { pusherServer } from "@/lib/pusher-server"
+import { wsChannel } from "@/lib/pusher-channels"
 
 async function requireContentPermission() {
 	const workspace = await requireWorkspace()
@@ -235,6 +237,12 @@ export async function updateSiteContent(key: string, value: string) {
 			.insert(schema.siteContent)
 			.values({ key, value, type: "text", workspaceId: workspace.id })
 	}
+
+	if (pusherServer) {
+		await pusherServer
+			.trigger(wsChannel(workspace.id, "content"), "content:updated", { key })
+			.catch(console.error)
+	}
 }
 
 export async function bulkUpdateSiteContent(entries: { key: string; value: string }[]) {
@@ -255,6 +263,14 @@ export async function bulkUpdateSiteContent(entries: { key: string; value: strin
 				.insert(schema.siteContent)
 				.values({ key, value, type: "text", workspaceId: workspace.id })
 		}
+	}
+
+	if (pusherServer) {
+		await pusherServer
+			.trigger(wsChannel(workspace.id, "content"), "content:bulk-updated", {
+				keys: entries.map(({ key }) => key),
+			})
+			.catch(console.error)
 	}
 }
 
