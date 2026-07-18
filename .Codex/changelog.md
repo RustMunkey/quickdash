@@ -1,5 +1,27 @@
 # Quickdash Changelog - Codex Session Log
 
+## Session - 2026-07-17 - Storefront Customer Order Ownership
+
+### Completed
+- Fixed storefront order creation so a valid customer bearer token attaches the new order to that customer while guest checkout remains supported.
+- Replaced caller-supplied customer IDs on order list/detail reads with verified storefront customer JWT identity.
+- Expanded order detail responses with payment status/method/currency, line items, flat tracking fields, and metadata-backed shipping addresses.
+- Added payment currency to customer order-list responses.
+
+### Files Changed
+- `apps/admin/app/api/storefront/orders/route.ts`
+- `apps/admin/app/api/storefront/orders/[id]/route.ts`
+- `.Codex/changelog.md`
+
+### Verification
+- Focused TypeScript check passed.
+- Focused Biome lint passed.
+
+### What's Next
+- Deploy this order ownership contract before testing a signed-in Gemsutopia checkout and My Orders/order-detail flow.
+- Add a workspace/storefront customer-membership model. Registration must create membership and the Customers dashboard must query membership rather than treating order history as the only proof that a customer exists.
+- Add membership-aware login plus email verification, password reset, session revocation, and complete address/profile lifecycle coverage.
+
 ## Session - 2026-07-17 - Gemsutopia Storefront Inventory Contract
 
 ### Completed

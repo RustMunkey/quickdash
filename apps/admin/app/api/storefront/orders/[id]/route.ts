@@ -1,8 +1,9 @@
-import { type NextRequest } from "next/server"
+import type { NextRequest } from "next/server"
 import { db } from "@quickdash/db/client"
 import { eq, and } from "@quickdash/db/drizzle"
-import { orders, orderItems, addresses } from "@quickdash/db/schema"
+import { orders, orderItems, addresses, payments } from "@quickdash/db/schema"
 import { withStorefrontAuth, storefrontError, handleCorsOptions, type StorefrontContext } from "@/lib/storefront-auth"
+import { extractBearerToken, verifyCustomerToken } from "@/lib/storefront-jwt"
 
 async function handleGet(
 	request: NextRequest,
@@ -10,13 +11,12 @@ async function handleGet(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await params
-	const { searchParams } = new URL(request.url)
-
-	// Customer ID is required for security - can only view own orders
-	const customerId = searchParams.get("customer_id")
-	if (!customerId) {
-		return storefrontError("customer_id query parameter is required", 400)
+	const token = extractBearerToken(request.headers.get("Authorization"))
+	const payload = token ? await verifyCustomerToken(token) : null
+	if (!payload || payload.storefrontId !== storefront.id) {
+		return storefrontError("Customer authentication is required", 401)
 	}
+	const customerId = payload.sub
 
 	// Get order
 	const [order] = await db
@@ -34,6 +34,7 @@ async function handleGet(
 			customerNotes: orders.customerNotes,
 			shippingAddressId: orders.shippingAddressId,
 			billingAddressId: orders.billingAddressId,
+			metadata: orders.metadata,
 			createdAt: orders.createdAt,
 			shippedAt: orders.shippedAt,
 			deliveredAt: orders.deliveredAt,
@@ -65,6 +66,17 @@ async function handleGet(
 		})
 		.from(orderItems)
 		.where(eq(orderItems.orderId, order.id))
+
+	const [payment] = await db
+		.select({
+			status: payments.status,
+			method: payments.method,
+			provider: payments.provider,
+			currency: payments.currency,
+		})
+		.from(payments)
+		.where(eq(payments.orderId, order.id))
+		.limit(1)
 
 	// Get addresses
 	let shippingAddress = null
@@ -112,6 +124,11 @@ async function handleGet(
 		billingAddress = shippingAddress
 	}
 
+	if (!shippingAddress) {
+		shippingAddress = (order.metadata?.shippingAddress as typeof shippingAddress) ?? null
+		billingAddress = billingAddress ?? shippingAddress
+	}
+
 	return Response.json({
 		order: {
 			id: order.id,
@@ -128,6 +145,9 @@ async function handleGet(
 						url: order.trackingUrl,
 				  }
 				: null,
+			trackingNumber: order.trackingNumber,
+			trackingUrl: order.trackingUrl,
+			payment: payment ?? null,
 			customerNotes: order.customerNotes,
 			items,
 			shippingAddress,
