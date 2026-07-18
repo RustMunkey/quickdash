@@ -1,9 +1,7 @@
-import { type NextRequest } from "next/server"
+import type { NextRequest } from "next/server"
 import { withStorefrontAuth, storefrontError, handleCorsOptions, type StorefrontContext } from "@/lib/storefront-auth"
-import { getPayPalCredentials, markIntegrationUsed } from "@/lib/workspace-integrations"
-import { db } from "@quickdash/db/client"
-import { eq, and } from "@quickdash/db/drizzle"
-import { workspaceIntegrations } from "@quickdash/db/schema"
+import { getPayPalCredentials } from "@/lib/workspace-integrations"
+import { getPayPalAccessToken, getPayPalBaseUrl, type PayPalCredentials } from "@/lib/paypal"
 
 type PayPalOrderItem = {
 	name: string
@@ -26,43 +24,6 @@ type CaptureOrderInput = {
 	orderId: string
 }
 
-/**
- * Get PayPal OAuth2 access token using client credentials
- */
-async function getPayPalAccessToken(
-	clientId: string,
-	clientSecret: string,
-	mode: "sandbox" | "live"
-): Promise<string> {
-	const baseUrl =
-		mode === "sandbox"
-			? "https://api-m.sandbox.paypal.com"
-			: "https://api-m.paypal.com"
-
-	const res = await fetch(`${baseUrl}/v1/oauth2/token`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/x-www-form-urlencoded",
-			Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-		},
-		body: "grant_type=client_credentials",
-	})
-
-	if (!res.ok) {
-		const text = await res.text()
-		throw new Error(`PayPal OAuth failed: ${res.status} ${text}`)
-	}
-
-	const data = await res.json()
-	return data.access_token
-}
-
-function getPayPalBaseUrl(mode: "sandbox" | "live"): string {
-	return mode === "sandbox"
-		? "https://api-m.sandbox.paypal.com"
-		: "https://api-m.paypal.com"
-}
-
 async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 	const creds = await getPayPalCredentials(storefront.workspaceId)
 	if (!creds) {
@@ -78,15 +39,14 @@ async function handlePost(request: NextRequest, storefront: StorefrontContext) {
 
 	// Route to create or capture based on request body
 	if ("orderId" in body) {
-		return captureOrder(body as CaptureOrderInput, creds, storefront)
+		return captureOrder(body as CaptureOrderInput, creds)
 	}
-	return createOrder(body as CreateOrderInput, creds, storefront)
+	return createOrder(body as CreateOrderInput, creds)
 }
 
 async function createOrder(
 	body: CreateOrderInput,
-	creds: { clientId: string; clientSecret: string; mode: "sandbox" | "live" },
-	storefront: StorefrontContext
+	creds: PayPalCredentials
 ) {
 	const { items, currency = "USD", successUrl, cancelUrl, shippingAmount, discountAmount, metadata } = body
 
@@ -95,7 +55,7 @@ async function createOrder(
 	}
 
 	try {
-		const accessToken = await getPayPalAccessToken(creds.clientId, creds.clientSecret, creds.mode)
+		const accessToken = await getPayPalAccessToken(creds)
 		const baseUrl = getPayPalBaseUrl(creds.mode)
 
 		// Calculate totals
@@ -105,6 +65,7 @@ async function createOrder(
 		const total = itemTotal + shipping - discount
 
 		const purchaseUnit: Record<string, unknown> = {
+			...(metadata?.checkoutAttemptId ? { custom_id: metadata.checkoutAttemptId } : {}),
 			amount: {
 				currency_code: currency.toUpperCase(),
 				value: total.toFixed(2),
@@ -168,8 +129,7 @@ async function createOrder(
 
 async function captureOrder(
 	body: CaptureOrderInput,
-	creds: { clientId: string; clientSecret: string; mode: "sandbox" | "live" },
-	storefront: StorefrontContext
+	creds: PayPalCredentials
 ) {
 	const { orderId } = body
 
@@ -178,7 +138,7 @@ async function captureOrder(
 	}
 
 	try {
-		const accessToken = await getPayPalAccessToken(creds.clientId, creds.clientSecret, creds.mode)
+		const accessToken = await getPayPalAccessToken(creds)
 		const baseUrl = getPayPalBaseUrl(creds.mode)
 
 		const res = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}/capture`, {

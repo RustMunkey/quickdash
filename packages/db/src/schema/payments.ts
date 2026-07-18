@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, decimal, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, decimal, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { orders } from "./orders";
 import { workspaces } from "./workspaces";
 
@@ -25,4 +25,5 @@ export const payments = pgTable("payments", {
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
 	index("payments_workspace_idx").on(table.workspaceId),
+	uniqueIndex("payments_workspace_external_id_unique").on(table.workspaceId, table.externalId),
 ]);

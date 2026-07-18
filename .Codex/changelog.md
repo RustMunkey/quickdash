@@ -1,5 +1,38 @@
 # Quickdash Changelog - Codex Session Log
 
+## Session - 2026-07-17 - Atomic PayPal Order Finalization
+
+### Completed
+- Added reusable server-side PayPal order/capture verification.
+- Changed storefront order finalization to reject unverified, incomplete, mismatched-amount, mismatched-currency, inactive-product, invalid-variant, and invalid-quantity submissions.
+- Made order, line-item, payment, stock-decrement, and inventory-log writes one database transaction.
+- Added conditional available-stock updates so concurrent fulfillment cannot drive inventory below reserved stock.
+- Added inventory audit logs linked to the fulfilled order.
+- Added capture-level idempotency: retrying the same completed PayPal capture returns the existing order instead of creating or decrementing twice.
+- Added a paid `inventory_review` recovery order when inventory changes after PayPal capture, ensuring a real payment is never lost merely because automatic fulfillment cannot complete.
+- Added the checkout attempt ID to PayPal's `custom_id` for provider-side traceability.
+- Added a database migration for the workspace/capture unique constraint.
+- Checked the live database read-only and confirmed there are no duplicate non-null payment external IDs blocking the constraint.
+
+### Files Changed
+- `apps/admin/lib/paypal.ts`
+- `apps/admin/app/api/storefront/payments/paypal/checkout/route.ts`
+- `apps/admin/app/api/storefront/orders/route.ts`
+- `packages/db/src/schema/payments.ts`
+- `packages/db/migrations/payments-external-id-idempotency.sql`
+- `.Codex/changelog.md`
+
+### Verification
+- Focused admin TypeScript check passed.
+- Focused Biome lint passed.
+- Live production duplicate-capture preflight returned zero conflicts.
+
+### What's Next
+- Apply `packages/db/migrations/payments-external-id-idempotency.sql` to production before deploying the application code.
+- Deploy the branch, then test a replay of an existing capture payload without issuing another charge.
+- Add operational notification for `inventory_review` orders.
+- Diagnose Resend delivery and add observable/retryable transactional email.
+
 ## Session - 2026-07-17 - Storefront Customer Order Ownership
 
 ### Completed
@@ -21,6 +54,7 @@
 - Deploy this order ownership contract before testing a signed-in Gemsutopia checkout and My Orders/order-detail flow.
 - Add a workspace/storefront customer-membership model. Registration must create membership and the Customers dashboard must query membership rather than treating order history as the only proof that a customer exists.
 - Add membership-aware login plus email verification, password reset, session revocation, and complete address/profile lifecycle coverage.
+- Diagnose production Resend delivery and make transactional email observable/retryable. Cover guest order confirmation first, then shipping/tracking, password reset, and email verification.
 
 ## Session - 2026-07-17 - Gemsutopia Storefront Inventory Contract
 
