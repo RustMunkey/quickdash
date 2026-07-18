@@ -309,3 +309,18 @@
 
 ### What's Next
 - Deploy Quickdash, then submit a real Gemsutopia contact form and confirm Reese receives the message.
+
+## Storefront Auth CORS — 2026-07-18
+
+### Completed
+- Fixed successful customer registration and login responses so they include Storefront API CORS headers.
+- Successful registration now returns the correct `201 Created` status.
+- This resolves browser-side `Failed to fetch` errors that occurred after Quickdash had already created a customer account.
+
+### Files Changed
+- `apps/admin/app/api/storefront/auth/register/route.ts`
+- `apps/admin/app/api/storefront/auth/login/route.ts`
+- `.Codex/changelog.md`
+
+### What's Next
+- Deploy Quickdash and sign in with the credentials from the first registration attempt before trying to register another account.
