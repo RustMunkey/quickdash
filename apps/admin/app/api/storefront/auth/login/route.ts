@@ -1,9 +1,9 @@
-import { type NextRequest } from "next/server"
+import type { NextRequest } from "next/server"
 import { db } from "@quickdash/db/client"
 import { eq, and } from "@quickdash/db/drizzle"
 import { users, accounts } from "@quickdash/db/schema"
 import { compare } from "bcryptjs"
-import { validateStorefrontRequest, storefrontError, handleCorsOptions } from "@/lib/storefront-auth"
+import { validateStorefrontRequest, storefrontError, storefrontJson, handleCorsOptions } from "@/lib/storefront-auth"
 import { createCustomerToken } from "@/lib/storefront-jwt"
 
 type LoginInput = {
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 		storefrontId: authResult.storefront.id,
 	})
 
-	return Response.json({
+	return storefrontJson({
 		user: {
 			id: user.id,
 			email: user.email,

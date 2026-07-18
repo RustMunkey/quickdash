@@ -294,3 +294,33 @@
 ### Transactional Email Verification
 - Focused TypeScript check passed with `/tmp/quickdash-tsconfig.json`.
 - Focused Biome lint passed for all five transactional-email implementation files.
+
+## Storefront Contact Delivery — 2026-07-18
+
+### Completed
+- Added a workspace-scoped storefront contact endpoint that validates and rate-limits public messages.
+- Contact submissions are stored in the workspace's `contact-submissions` collection before delivery.
+- Messages are delivered through the workspace Resend integration to its configured reply-to address, with the customer's address set as the email reply-to.
+- User-provided content is escaped before HTML email rendering.
+
+### Files Changed
+- `apps/admin/app/api/storefront/contact/route.ts`
+- `.Codex/changelog.md`
+
+### What's Next
+- Deploy Quickdash, then submit a real Gemsutopia contact form and confirm Reese receives the message.
+
+## Storefront Auth CORS — 2026-07-18
+
+### Completed
+- Fixed successful customer registration and login responses so they include Storefront API CORS headers.
+- Successful registration now returns the correct `201 Created` status.
+- This resolves browser-side `Failed to fetch` errors that occurred after Quickdash had already created a customer account.
+
+### Files Changed
+- `apps/admin/app/api/storefront/auth/register/route.ts`
+- `apps/admin/app/api/storefront/auth/login/route.ts`
+- `.Codex/changelog.md`
+
+### What's Next
+- Deploy Quickdash and sign in with the credentials from the first registration attempt before trying to register another account.
